@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ 'Register' if mode == 'register' else 'Login' }} · Lacuna</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Parisienne&family=Pinyon+Script&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --offwhite:#f4f1e8;
+            --bg:#e9e7e7;
+            --fg:#050505;
+            --gray:#5f5f63;
+            --light:#f4f1e8;
+            --border:#747474;
+            --accent:#8fa2ff;
+            --shadow:rgba(0,0,0,0.10);
+            --headline-font:"Tiempos Headline","Tiempos Headline Web",Georgia,"Times New Roman",serif;
+        }
+        * { box-sizing:border-box; margin:0; padding:0; }
+        body {
+            min-height:100vh;
+            display:grid;
+            place-items:center;
+            background:var(--bg);
+            color:var(--fg);
+            font-family:"Courier New",Courier,monospace;
+            line-height:1.5;
+            padding:24px;
+        }
+        .auth-shell {
+            width:min(420px, 100%);
+        }
+        .wordmark {
+            font-family: "Pinyon Script", "Parisienne", cursive;
+            font-size: 3.6rem;
+            font-weight: 400;
+            letter-spacing: 0.04em;
+            line-height: 1;
+            margin-bottom: 20px;
+            text-align: center;
+            color: var(--fg);
+            user-select: none;
+        }
+        .auth-panel {
+            border:1px solid var(--border);
+            background:var(--light);
+            box-shadow:0 12px 42px var(--shadow);
+            padding:24px;
+        }
+        h1 {
+            font-family:var(--headline-font);
+            font-size:2rem;
+            line-height:1.05;
+            margin-bottom:6px;
+        }
+        .subtitle {
+            color:var(--gray);
+            font-size:0.86rem;
+            margin-bottom:22px;
+        }
+        .field {
+            display:grid;
+            gap:7px;
+            margin-bottom:14px;
+        }
+        label {
+            color:var(--gray);
+            font-size:0.66rem;
+            font-weight:bold;
+            letter-spacing:1.6px;
+            text-transform:uppercase;
+        }
+        input {
+            width:100%;
+            border:1px solid var(--border);
+            border-radius:4px;
+            background:var(--bg);
+            color:var(--fg);
+            font:inherit;
+            padding:10px 12px;
+            outline:none;
+        }
+        input:focus {
+            border-color:var(--fg);
+            box-shadow:0 0 0 2px rgba(5,5,5,0.08);
+        }
+        .auth-btn {
+            width:100%;
+            border:1px solid var(--fg);
+            border-radius:4px;
+            background:var(--fg);
+            color:var(--bg);
+            cursor:pointer;
+            font:inherit;
+            font-weight:bold;
+            margin-top:6px;
+            padding:10px 14px;
+        }
+        .auth-btn:hover {
+            background:var(--accent);
+            color:var(--fg);
+        }
+        .flash {
+            border:1px solid #b94a50;
+            background:#fff3cf;
+            color:#8a272d;
+            font-size:0.82rem;
+            margin-bottom:16px;
+            padding:9px 11px;
+        }
+        .switch {
+            color:var(--gray);
+            font-size:0.84rem;
+            margin-top:16px;
+            text-align:center;
+        }
+        .switch a {
+            color:var(--fg);
+            font-weight:bold;
+        }
+    </style>
+</head>
+<body>
+    <main class="auth-shell">
+        <div class="wordmark">Lacuna</div>
+        <section class="auth-panel">
+            {% if mode == 'register' %}
+                <h1>Create account</h1>
+                <p class="subtitle">Start a private Lacuna session.</p>
+            {% else %}
+                <h1>Welcome back</h1>
+                <p class="subtitle">Login to read and synthesize the feed.</p>
+            {% endif %}
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="post">
+                <div class="field">
+                    <label for="username">Username</label>
+                    <input id="username" name="username" autocomplete="username" required autofocus>
+                </div>
+                <div class="field">
+                    <label for="password">Password</label>
+                    <input id="password" name="password" type="password" autocomplete="{{ 'new-password' if mode == 'register' else 'current-password' }}" required>
+                </div>
+                {% if mode == 'register' %}
+                    <div class="field">
+                        <label for="confirm_password">Confirm password</label>
+                        <input id="confirm_password" name="confirm_password" type="password" autocomplete="new-password" required>
+                    </div>
+                {% endif %}
+                <button class="auth-btn" type="submit">{{ 'Create account' if mode == 'register' else 'Login' }}</button>
+            </form>
+
+            <div class="switch">
+                {% if mode == 'register' %}
+                    Already have an account? <a href="{{ url_for('login') }}">Login</a>
+                {% else %}
+                    New here? <a href="{{ url_for('register') }}">Create an account</a>
+                {% endif %}
+            </div>
+        </section>
+    </main>
+</body>
+</html>

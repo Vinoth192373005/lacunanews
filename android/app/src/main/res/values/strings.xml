@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Lacuna</string>
+    <string name="lacuna_url">http://10.0.2.2:5001</string>
+</resources>
+

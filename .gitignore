@@ -1,0 +1,40 @@
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local environment/secrets
+.env
+.flaskenv
+
+# Local app data
+instance/
+*.sqlite
+*.sqlite3
+*.db
+
+# Tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Android
+android/.gradle/
+android/local.properties
+android/**/build/
+lacuna-android/.gradle/
+lacuna-android/local.properties
+lacuna-android/**/build/
+.idea/
+*.apk
+*.aab
+
