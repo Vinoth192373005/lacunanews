@@ -337,11 +337,6 @@ _wiki_image_cache = {}
 
 HOME_QUERY = "__home__"
 
-# API keys are loaded from environment variables.
-# NEWSAPI_KEY: https://newsapi.org/register
-# GNEWS_KEY: https://gnews.io
-NEWSAPI_KEY = os.environ.get("NEWSAPI_KEY", "")
-GNEWS_KEY = os.environ.get("GNEWS_KEY", "")
 
 _embedder = None
 def get_embedder():
@@ -1157,68 +1152,6 @@ def fetch_home_articles(region_code=DEFAULT_REGION):
         articles.append(art)
         return True
 
-    newsapi_key = NEWSAPI_KEY
-    gnews_key   = GNEWS_KEY
-
-    if newsapi_key and not newsapi_key.startswith('YOUR_'):
-        try:
-            r_cfg = REGIONS.get(region_code, REGIONS[DEFAULT_REGION])
-            country_param = f"&country={r_cfg['gl'].lower()}" if r_cfg['gl'] else ""
-            url = (f"https://newsapi.org/v2/top-headlines"
-                   f"?pageSize=100{country_param}&apiKey={newsapi_key}")
-            r = requests.get(url, headers=HEADERS, timeout=8)
-            added_hl = 0
-            if r.status_code == 200:
-                for art in r.json().get('articles', []):
-                    title = clean_article_title(art.get('title') or '')
-                    if not title or title == '[Removed]':
-                        continue
-                    if not is_recent(art.get('publishedAt', '')):
-                        continue
-                    img_clean = clean_image_url(art.get('urlToImage'))
-                    if add({
-                        'title':     title,
-                        'summary':   (art.get('description') or '').strip(),
-                        'url':       art.get('url', ''),
-                        'image':     img_clean,
-                        'published': art.get('publishedAt', ''),
-                        'source':    ((art.get('source') or {}).get('name') or '').strip(),
-                        '_source_kind': 'api',
-                        '_api_seed': bool(img_clean),
-                    }):
-                        added_hl += 1
-                print(f"  NewsAPI top-headlines: {added_hl} articles")
-        except (requests.RequestException, ValueError) as e:
-            print(f"  NewsAPI exception: {e}")
-
-    if gnews_key and not gnews_key.startswith('YOUR_'):
-        try:
-            r_cfg = REGIONS.get(region_code, REGIONS[DEFAULT_REGION])
-            url = (f"https://gnews.io/api/v4/top-headlines"
-                   f"?lang=en&country={r_cfg['gl'].lower()}&max=50&apikey={gnews_key}")
-            r = requests.get(url, headers=HEADERS, timeout=8)
-            if r.status_code == 200:
-                added = 0
-                for art in r.json().get('articles', []):
-                    title = clean_article_title(art.get('title') or '')
-                    if not title or not is_recent(art.get('publishedAt', '')):
-                        continue
-                    img_clean = clean_image_url(art.get('image'))
-                    if add({
-                        'title':     title,
-                        'summary':   (art.get('description') or '').strip(),
-                        'url':       art.get('url', ''),
-                        'image':     img_clean,
-                        'published': art.get('publishedAt', ''),
-                        'source':    ((art.get('source') or {}).get('name') or '').strip(),
-                        '_source_kind': 'api',
-                        '_api_seed': bool(img_clean),
-                    }):
-                        added += 1
-                print(f"  GNews top-headlines: {added} new articles")
-        except (requests.RequestException, ValueError) as e:
-            print(f"  GNews top-headlines exception: {e}")
-
     # Primary high-signal RSS topics for Home feed
     PRIMARY_HOME_PATHS = [
         "headlines",
@@ -1499,109 +1432,81 @@ def fetch_search_articles(query, region_code=DEFAULT_REGION):
                         articles.append(entry)
 
     else:
-        newsapi_key = NEWSAPI_KEY
-        gnews_key   = GNEWS_KEY
-        newsapi_articles = []
-
-        if newsapi_key and not newsapi_key.startswith('YOUR_'):
-            try:
-                from_date = (datetime.now(timezone.utc) - timedelta(days=RECENCY_DAYS)).strftime('%Y-%m-%d')
-                url = (f"https://newsapi.org/v2/everything"
-                       f"?q={encoded}&language=en&sortBy=publishedAt"
-                       f"&from={from_date}&pageSize=100&apiKey={newsapi_key}")
-                r = requests.get(url, headers=HEADERS, timeout=8)
-                if r.status_code == 200:
-                    for art in r.json().get('articles', []):
-                        title = (art.get('title') or '').strip()
-                        if not title or title == '[Removed]':
-                            continue
-                        if not is_relevant(title, query):
-                            continue
-                        if not is_recent(art.get('publishedAt', '')):
-                            continue
-                        title_clean = re.sub(r' - [^-]{2,40}$', '', title).strip()
-                        key = norm(title_clean)
-                        if not key or key in seen:
-                            continue
+        gnews_urls = [
+            f"https://news.google.com/rss/search?q={encoded}&hl={r_cfg['hl']}&gl={r_cfg['gl']}&ceid={r_cfg['ceid']}",
+            f"https://news.google.com/rss/search?q={encoded}+news&hl={r_cfg['hl']}&gl={r_cfg['gl']}&ceid={r_cfg['ceid']}",
+            f"https://news.google.com/rss/search?q={encoded}+latest&hl={r_cfg['hl']}&gl={r_cfg['gl']}&ceid={r_cfg['ceid']}",
+        ]
+        def fetch_gnews(url):
+            feed = feedparser.parse(url)
+            out = []
+            for e in feed.entries:
+                title = re.sub(r' - [^-]{2,40}$', '', (e.get('title') or '')).strip()
+                if len(title) <= 10 or not is_relevant(title, query):
+                    continue
+                pub = e.get('published', '')
+                if not is_recent(pub):
+                    continue
+                s_name, s_url, s_domain = extract_feed_source(e)
+                out.append({'title': title,
+                            'summary': clean_html(e.get('summary', '')),
+                            'url': e.get('link', ''), 'image': None,
+                            'published': pub,
+                            'source': s_name,
+                            'source_url': s_url,
+                            'domain': s_domain,
+                            '_source_kind': 'rss_topic'})
+            return out
+        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as ex:
+            for batch in ex.map(fetch_gnews, gnews_urls):
+                for entry in batch:
+                    key = norm(entry['title'])
+                    if key and key not in seen:
                         seen.add(key)
-                        img_clean = clean_image_url(art.get('urlToImage'))
-                        newsapi_articles.append({
-                            'title':     title_clean,
-                            'summary':   (art.get('description') or '').strip(),
-                            'url':       art.get('url', ''),
-                            'image':     img_clean,
-                            'published': art.get('publishedAt', ''),
-                            'source':    ((art.get('source') or {}).get('name') or '').strip(),
-                            '_source_kind': 'api',
-                            '_api_seed': bool(img_clean),
-                        })
-            except (requests.RequestException, ValueError) as e:
-                print(f"  NewsAPI.org exception: {e}")
+                        articles.append(entry)
 
-        if gnews_key:
-            try:
-                url = (f"https://gnews.io/api/v4/search"
-                       f"?q={encoded}&lang=en&max=50&sortby=publishedAt&apikey={gnews_key}")
-                r = requests.get(url, headers=HEADERS, timeout=8)
-                if r.status_code == 200:
-                    for art in r.json().get('articles', []):
-                        title = (art.get('title') or '').strip()
-                        if not title or not is_relevant(title, query) or not is_recent(art.get('publishedAt', '')):
-                            continue
-                        title_clean = re.sub(r' - [^-]{2,40}$', '', title).strip()
-                        key = norm(title_clean)
-                        if not key or key in seen:
-                            continue
-                        seen.add(key)
-                        img_clean = clean_image_url(art.get('image'))
-                        newsapi_articles.append({
-                            'title':     title_clean,
-                            'summary':   (art.get('description') or '').strip(),
-                            'url':       art.get('url', ''),
-                            'image':     img_clean,
-                            'published': art.get('publishedAt', ''),
-                            'source':    ((art.get('source') or {}).get('name') or '').strip(),
-                            '_source_kind': 'api',
-                            '_api_seed': bool(img_clean),
-                        })
-            except (requests.RequestException, ValueError) as e:
-                print(f"  GNews.io exception: {e}")
-
-        articles = list(newsapi_articles)
-
-        if not articles:
-            gnews_urls = [
-                f"https://news.google.com/rss/search?q={encoded}&hl={r_cfg['hl']}&gl={r_cfg['gl']}&ceid={r_cfg['ceid']}",
-                f"https://news.google.com/rss/search?q={encoded}+news&hl={r_cfg['hl']}&gl={r_cfg['gl']}&ceid={r_cfg['ceid']}",
-                f"https://news.google.com/rss/search?q={encoded}+latest&hl={r_cfg['hl']}&gl={r_cfg['gl']}&ceid={r_cfg['ceid']}",
-            ]
-            def fetch_gnews(url):
+        # Cross-reference custom search seeds for depth
+        top_seeds = articles[:12]
+        if top_seeds:
+            def fetch_related_search_rss(art):
+                words = re.findall(r'[A-Za-z]{4,}', art['title'])
+                kw = ' '.join(words[:4])
+                if not kw or len(kw) < 4:
+                    return []
+                enc_kw = urllib.parse.quote(kw)
+                url = f"https://news.google.com/rss/search?q={enc_kw}&hl={r_cfg['hl']}&gl={r_cfg['gl']}&ceid={r_cfg['ceid']}"
                 feed = feedparser.parse(url)
                 out = []
-                for e in feed.entries:
-                    title = re.sub(r' - [^-]{2,40}$', '', (e.get('title') or '')).strip()
-                    if len(title) <= 10 or not is_relevant(title, query):
+                for e in feed.entries[:5]:
+                    title = clean_article_title(e.get('title') or '')
+                    if len(title) <= 10 or JUNK_PATTERNS.search(title):
                         continue
                     pub = e.get('published', '')
                     if not is_recent(pub):
                         continue
                     s_name, s_url, s_domain = extract_feed_source(e)
-                    out.append({'title': title,
-                                'summary': clean_html(e.get('summary', '')),
-                                'url': e.get('link', ''), 'image': None,
-                                'published': pub,
-                                'source': s_name,
-                                'source_url': s_url,
-                                'domain': s_domain,
-                                '_source_kind': 'rss_topic'})
+                    out.append({
+                        'title': title,
+                        'summary': clean_html(e.get('summary', '')),
+                        'url': e.get('link', ''),
+                        'image': None,
+                        'published': pub,
+                        '_seed': norm(art['title']),
+                        'source': s_name,
+                        'source_url': s_url,
+                        'domain': s_domain,
+                        '_source_kind': 'rss_support',
+                    })
                 return out
-            with concurrent.futures.ThreadPoolExecutor() as ex:
-                for batch in ex.map(fetch_gnews, gnews_urls):
-                    for entry in batch:
-                        key = norm(entry['title'])
-                        if key and key not in seen:
-                            seen.add(key)
-                            articles.append(entry)
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=6) as ex:
+                xref_batches = list(ex.map(fetch_related_search_rss, top_seeds))
+            for batch in xref_batches:
+                for entry in batch:
+                    key = norm(entry['title'])
+                    if key and key not in seen:
+                        seen.add(key)
+                        articles.append(entry)
 
     # Enrich search results with real publisher OG images
     search_to_enrich = [a for a in articles if not a.get('image')][:28]

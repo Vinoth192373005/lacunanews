@@ -23,12 +23,10 @@ Create your local environment file:
 cp .env.example .env
 ```
 
-Edit `.env` and add your own values for:
+Edit `.env` and configure your settings:
 
 ```bash
 SECRET_KEY
-NEWSAPI_KEY
-GNEWS_KEY
 ```
 
 Run the app locally:
@@ -63,8 +61,6 @@ Set these environment variables in your hosting dashboard:
 
 ```bash
 SECRET_KEY
-NEWSAPI_KEY
-GNEWS_KEY
 ```
 
 ## Notes
