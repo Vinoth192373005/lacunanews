@@ -1343,6 +1343,19 @@ def fetch_home_articles(region_code=DEFAULT_REGION):
     return articles
 
 
+TOPIC_CATEGORY_MAP = {
+    "business": ("BUSINESS", ["business news", "stock markets economy", "finance corporate"]),
+    "technology": ("TECHNOLOGY", ["technology news", "artificial intelligence tech", "gadgets software"]),
+    "sports": ("SPORTS", ["sports headlines", "football soccer", "basketball championship"]),
+    "sport": ("SPORTS", ["sports headlines", "football soccer", "basketball championship"]),
+    "culture": ("ENTERTAINMENT", ["entertainment culture", "film music", "celebrity arts books"]),
+    "entertainment": ("ENTERTAINMENT", ["entertainment culture", "film music", "celebrity arts books"]),
+    "health": ("HEALTH", ["health medicine", "wellness medical", "healthcare science"]),
+    "science": ("SCIENCE", ["science research", "space astronomy", "nature climate"]),
+    "world": ("WORLD", ["world news", "international diplomacy", "global affairs"]),
+}
+
+
 def fetch_search_articles(query, region_code=DEFAULT_REGION):
     from datetime import datetime, timezone, timedelta
 
@@ -1393,56 +1406,112 @@ def fetch_search_articles(query, region_code=DEFAULT_REGION):
         title_lower = title.lower()
         return any(w in title_lower for w in q_words)
 
-    newsapi_key = NEWSAPI_KEY
-    gnews_key   = GNEWS_KEY
-    newsapi_articles = []
+    q_norm = query.lower().strip()
+    topic_match = None
+    for key, val in TOPIC_CATEGORY_MAP.items():
+        if q_norm == key or q_norm.startswith(key + " ") or q_norm.startswith("topic:" + key):
+            topic_match = val
+            break
 
-    if newsapi_key and not newsapi_key.startswith('YOUR_'):
-        try:
-            from_date = (datetime.now(timezone.utc) - timedelta(days=RECENCY_DAYS)).strftime('%Y-%m-%d')
-            url = (f"https://newsapi.org/v2/everything"
-                   f"?q={encoded}&language=en&sortBy=publishedAt"
-                   f"&from={from_date}&pageSize=100&apiKey={newsapi_key}")
-            r = requests.get(url, headers=HEADERS, timeout=8)
-            if r.status_code == 200:
-                for art in r.json().get('articles', []):
-                    title = (art.get('title') or '').strip()
-                    if not title or title == '[Removed]':
+    if topic_match:
+        topic_code, subqueries = topic_match
+        print(f"  Fetching Topic Feed: {topic_code} for region {region_code}...")
+        topic_urls = [
+            f"https://news.google.com/rss/headlines/section/topic/{topic_code}?hl={r_cfg['hl']}&gl={r_cfg['gl']}&ceid={r_cfg['ceid']}"
+        ]
+        for sq in subqueries:
+            enc = urllib.parse.quote(sq)
+            topic_urls.append(f"https://news.google.com/rss/search?q={enc}&hl={r_cfg['hl']}&gl={r_cfg['gl']}&ceid={r_cfg['ceid']}")
+
+        def fetch_topic_feed(url):
+            feed = feedparser.parse(url)
+            out = []
+            for e in feed.entries:
+                title = clean_article_title(e.get('title') or '')
+                if len(title) <= 12 or JUNK_PATTERNS.search(title):
+                    continue
+                pub = e.get('published', '')
+                if not is_recent(pub):
+                    continue
+                s_name, s_url, s_domain = extract_feed_source(e)
+                out.append({
+                    'title': title,
+                    'summary': clean_html(e.get('summary', '')),
+                    'url': e.get('link', ''),
+                    'image': None,
+                    'published': pub,
+                    'source': s_name,
+                    'source_url': s_url,
+                    'domain': s_domain,
+                    '_source_kind': 'rss_topic'
+                })
+            return out
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
+            for batch in ex.map(fetch_topic_feed, topic_urls):
+                for entry in batch:
+                    key = norm(entry['title'])
+                    if key and key not in seen:
+                        seen.add(key)
+                        articles.append(entry)
+
+        # Cross-reference top seeds for multi-source consensus depth
+        top_seeds = articles[:15]
+        if top_seeds:
+            def fetch_related_category_rss(art):
+                words = re.findall(r'[A-Za-z]{4,}', art['title'])
+                kw = ' '.join(words[:4])
+                if not kw or len(kw) < 4:
+                    return []
+                enc_kw = urllib.parse.quote(kw)
+                url = f"https://news.google.com/rss/search?q={enc_kw}&hl={r_cfg['hl']}&gl={r_cfg['gl']}&ceid={r_cfg['ceid']}"
+                feed = feedparser.parse(url)
+                out = []
+                for e in feed.entries[:6]:
+                    title = clean_article_title(e.get('title') or '')
+                    if len(title) <= 12 or JUNK_PATTERNS.search(title):
                         continue
-                    if not is_relevant(title, query):
+                    pub = e.get('published', '')
+                    if not is_recent(pub):
                         continue
-                    if not is_recent(art.get('publishedAt', '')):
-                        continue
-                    title_clean = re.sub(r' - [^-]{2,40}$', '', title).strip()
-                    key = norm(title_clean)
-                    if not key or key in seen:
-                        continue
-                    seen.add(key)
-                    img_clean = clean_image_url(art.get('urlToImage'))
-                    newsapi_articles.append({
-                        'title':     title_clean,
-                        'summary':   (art.get('description') or '').strip(),
-                        'url':       art.get('url', ''),
-                        'image':     img_clean,
-                        'published': art.get('publishedAt', ''),
-                        'source':    ((art.get('source') or {}).get('name') or '').strip(),
-                        '_source_kind': 'api',
-                        '_api_seed': bool(img_clean),
+                    s_name, s_url, s_domain = extract_feed_source(e)
+                    out.append({
+                        'title': title,
+                        'summary': clean_html(e.get('summary', '')),
+                        'url': e.get('link', ''),
+                        'image': None,
+                        'published': pub,
+                        '_seed': norm(art['title']),
+                        'source': s_name,
+                        'source_url': s_url,
+                        'domain': s_domain,
+                        '_source_kind': 'rss_support',
                     })
-            else:
-                print(f"  NewsAPI.org error {r.status_code}: {r.text[:100]}")
-        except (requests.RequestException, ValueError) as e:
-            print(f"  NewsAPI.org exception: {e}")
+                return out
 
-        if newsapi_key and len(newsapi_articles) >= 100:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
+                xref_batches = list(ex.map(fetch_related_category_rss, top_seeds))
+            for batch in xref_batches:
+                for entry in batch:
+                    key = norm(entry['title'])
+                    if key and key not in seen:
+                        seen.add(key)
+                        articles.append(entry)
+
+    else:
+        newsapi_key = NEWSAPI_KEY
+        gnews_key   = GNEWS_KEY
+        newsapi_articles = []
+
+        if newsapi_key and not newsapi_key.startswith('YOUR_'):
             try:
                 from_date = (datetime.now(timezone.utc) - timedelta(days=RECENCY_DAYS)).strftime('%Y-%m-%d')
-                url2 = (f"https://newsapi.org/v2/everything"
-                        f"?q={encoded}&language=en&sortBy=publishedAt"
-                        f"&from={from_date}&pageSize=100&page=2&apiKey={newsapi_key}")
-                r2 = requests.get(url2, headers=HEADERS, timeout=8)
-                if r2.status_code == 200:
-                    for art in r2.json().get('articles', []):
+                url = (f"https://newsapi.org/v2/everything"
+                       f"?q={encoded}&language=en&sortBy=publishedAt"
+                       f"&from={from_date}&pageSize=100&apiKey={newsapi_key}")
+                r = requests.get(url, headers=HEADERS, timeout=8)
+                if r.status_code == 200:
+                    for art in r.json().get('articles', []):
                         title = (art.get('title') or '').strip()
                         if not title or title == '[Removed]':
                             continue
@@ -1467,150 +1536,75 @@ def fetch_search_articles(query, region_code=DEFAULT_REGION):
                             '_api_seed': bool(img_clean),
                         })
             except (requests.RequestException, ValueError) as e:
-                print(f"  NewsAPI.org page 2 exception: {e}")
+                print(f"  NewsAPI.org exception: {e}")
 
-    if gnews_key:
-        try:
-            url = (f"https://gnews.io/api/v4/search"
-                   f"?q={encoded}&lang=en&max=50&sortby=publishedAt&apikey={gnews_key}")
-            r = requests.get(url, headers=HEADERS, timeout=8)
-            if r.status_code == 200:
-                gnews_added = 0
-                for art in r.json().get('articles', []):
-                    title = (art.get('title') or '').strip()
-                    if not title or not is_relevant(title, query) or not is_recent(art.get('publishedAt', '')):
-                        continue
-                    title_clean = re.sub(r' - [^-]{2,40}$', '', title).strip()
-                    key = norm(title_clean)
-                    if not key or key in seen:
-                        continue
-                    seen.add(key)
-                    img_clean = clean_image_url(art.get('image'))
-                    newsapi_articles.append({
-                        'title':     title_clean,
-                        'summary':   (art.get('description') or '').strip(),
-                        'url':       art.get('url', ''),
-                        'image':     img_clean,
-                        'published': art.get('publishedAt', ''),
-                        'source':    ((art.get('source') or {}).get('name') or '').strip(),
-                        '_source_kind': 'api',
-                        '_api_seed': bool(img_clean),
-                    })
-                    gnews_added += 1
-                print(f"  GNews.io: {gnews_added} articles")
-        except (requests.RequestException, ValueError) as e:
-            print(f"  GNews.io exception: {e}")
-
-    articles.extend(newsapi_articles)
-
-    def keywords_strict(title, fallback_query):
-        stop = {'a','an','the','in','on','at','to','of','and','or','but',
-                'for','with','is','was','are','says','say','after','over',
-                'as','by','its','it','that','this','has','have','from',
-                'be','been','not','no','new','will','can','could','would',
-                'more','most','top','best','big','one','two','three',
-                'years','year','today','now','just','also','how','why',
-                'what','who','when','where','than','amid','into','up',
-                'out','off','about','all','here','there','news','latest'}
-        caps = re.findall(r'\b[A-Z][a-z]{2,}\b', title)
-        caps_filtered = [w for w in caps if w.lower() not in stop]
-        if len(caps_filtered) >= 2:
-            return ' '.join(caps_filtered[:6])
-        words = re.findall(r'[A-Za-z]{3,}', title)
-        words_f = [w for w in words if w.lower() not in stop]
-        if words_f:
-            return ' '.join(words_f[:5])
-        q_words = re.findall(r'[A-Za-z]{3,}', fallback_query)
-        return ' '.join([w for w in q_words if w.lower() not in stop][:5])
-
-    def fetch_related_gnews(newsapi_art):
-        kw = keywords_strict(newsapi_art['title'], query)
-        if not kw:
-            return []
-        enc_kw = urllib.parse.quote(kw)
-        url = (f"https://news.google.com/rss/search?q={enc_kw}"
-               f"&hl={r_cfg['hl']}&gl={r_cfg['gl']}&ceid={r_cfg['ceid']}")
-        feed = feedparser.parse(url)
-        related = []
-        for e in feed.entries[:12]:
-            title = (e.get('title') or '').strip()
-            title_clean = re.sub(r' - [^-]{2,40}$', '', title).strip()
-            if len(title_clean) <= 10:
-                continue
-            if not is_relevant(title_clean, query):
-                continue
-            pub = e.get('published', '')
-            if not is_recent(pub):
-                continue
-            s_name, s_url, s_domain = extract_feed_source(e)
-            related.append({
-                'title':     title_clean,
-                'summary':   clean_html(e.get('summary', '')),
-                'url':       e.get('link', ''),
-                'image':     None,
-                'published': pub,
-                '_seed':     re.sub(r'[^a-z0-9]', '', newsapi_art['title'].lower())[:60],
-                'source':    s_name,
-                'source_url': s_url,
-                'domain':    s_domain,
-                '_source_kind': 'rss_support',
-            })
-        return related
-
-    if newsapi_articles:
-        coverage_seeds = [a for a in newsapi_articles if a.get('_api_seed') and a.get('image')]
-        if not coverage_seeds:
-            coverage_seeds = newsapi_articles
-        print(f"  Fetching Google News coverage for {len(coverage_seeds)} API stories...")
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as ex:
-            batches = list(ex.map(fetch_related_gnews, coverage_seeds))
-
-        gnews_added = 0
-        for batch in batches:
-            for entry in batch:
-                key = norm(entry['title'])
-                if key and key not in seen:
-                    seen.add(key)
-                    articles.append(entry)
-                    gnews_added += 1
-        print(f"  Google News: {gnews_added} additional articles")
-    else:
-        print("  Falling back to Google News search only (no images)")
-        gnews_urls = [
-            f"https://news.google.com/rss/search?q={encoded}&hl={r_cfg['hl']}&gl={r_cfg['gl']}&ceid={r_cfg['ceid']}",
-            f"https://news.google.com/rss/search?q={encoded}+latest&hl={r_cfg['hl']}&gl={r_cfg['gl']}&ceid={r_cfg['ceid']}",
-            f"https://news.google.com/rss/search?q={encoded}+news&hl={r_cfg['hl']}&gl={r_cfg['gl']}&ceid={r_cfg['ceid']}",
-        ]
-        def fetch_gnews(url):
-            feed = feedparser.parse(url)
-            out = []
-            for e in feed.entries:
-                title = re.sub(r' - [^-]{2,40}$', '', (e.get('title') or '')).strip()
-                if len(title) <= 10 or not is_relevant(title, query):
-                    continue
-                pub = e.get('published', '')
-                if not is_recent(pub):
-                    continue
-                s_name, s_url, s_domain = extract_feed_source(e)
-                out.append({'title': title,
-                            'summary': clean_html(e.get('summary', '')),
-                            'url': e.get('link', ''), 'image': None,
-                            'published': pub,
-                            'source': s_name,
-                            'source_url': s_url,
-                            'domain': s_domain,
-                            '_source_kind': 'rss_topic'})
-            return out
-        with concurrent.futures.ThreadPoolExecutor() as ex:
-            for batch in ex.map(fetch_gnews, gnews_urls):
-                for entry in batch:
-                    key = norm(entry['title'])
-                    if key and key not in seen:
+        if gnews_key:
+            try:
+                url = (f"https://gnews.io/api/v4/search"
+                       f"?q={encoded}&lang=en&max=50&sortby=publishedAt&apikey={gnews_key}")
+                r = requests.get(url, headers=HEADERS, timeout=8)
+                if r.status_code == 200:
+                    for art in r.json().get('articles', []):
+                        title = (art.get('title') or '').strip()
+                        if not title or not is_relevant(title, query) or not is_recent(art.get('publishedAt', '')):
+                            continue
+                        title_clean = re.sub(r' - [^-]{2,40}$', '', title).strip()
+                        key = norm(title_clean)
+                        if not key or key in seen:
+                            continue
                         seen.add(key)
-                        articles.append(entry)
+                        img_clean = clean_image_url(art.get('image'))
+                        newsapi_articles.append({
+                            'title':     title_clean,
+                            'summary':   (art.get('description') or '').strip(),
+                            'url':       art.get('url', ''),
+                            'image':     img_clean,
+                            'published': art.get('publishedAt', ''),
+                            'source':    ((art.get('source') or {}).get('name') or '').strip(),
+                            '_source_kind': 'api',
+                            '_api_seed': bool(img_clean),
+                        })
+            except (requests.RequestException, ValueError) as e:
+                print(f"  GNews.io exception: {e}")
+
+        articles = list(newsapi_articles)
+
+        if not articles:
+            gnews_urls = [
+                f"https://news.google.com/rss/search?q={encoded}&hl={r_cfg['hl']}&gl={r_cfg['gl']}&ceid={r_cfg['ceid']}",
+                f"https://news.google.com/rss/search?q={encoded}+news&hl={r_cfg['hl']}&gl={r_cfg['gl']}&ceid={r_cfg['ceid']}",
+                f"https://news.google.com/rss/search?q={encoded}+latest&hl={r_cfg['hl']}&gl={r_cfg['gl']}&ceid={r_cfg['ceid']}",
+            ]
+            def fetch_gnews(url):
+                feed = feedparser.parse(url)
+                out = []
+                for e in feed.entries:
+                    title = re.sub(r' - [^-]{2,40}$', '', (e.get('title') or '')).strip()
+                    if len(title) <= 10 or not is_relevant(title, query):
+                        continue
+                    pub = e.get('published', '')
+                    if not is_recent(pub):
+                        continue
+                    s_name, s_url, s_domain = extract_feed_source(e)
+                    out.append({'title': title,
+                                'summary': clean_html(e.get('summary', '')),
+                                'url': e.get('link', ''), 'image': None,
+                                'published': pub,
+                                'source': s_name,
+                                'source_url': s_url,
+                                'domain': s_domain,
+                                '_source_kind': 'rss_topic'})
+                return out
+            with concurrent.futures.ThreadPoolExecutor() as ex:
+                for batch in ex.map(fetch_gnews, gnews_urls):
+                    for entry in batch:
+                        key = norm(entry['title'])
+                        if key and key not in seen:
+                            seen.add(key)
+                            articles.append(entry)
 
     # Enrich search results with real publisher OG images
-    search_to_enrich = [a for a in articles if not a.get('image')][:25]
+    search_to_enrich = [a for a in articles if not a.get('image')][:28]
     if search_to_enrich:
         print(f"  Extracting real publisher images for {len(search_to_enrich)} search stories...")
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as ex:
