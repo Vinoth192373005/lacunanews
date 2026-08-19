@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bookmarks · Lacuna</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Parisienne&family=Pinyon+Script&display=swap" rel="stylesheet">
+    <link href="https://fonts.cdnfonts.com/css/glacial-indifference-2" rel="stylesheet">
+    <style>
+        @font-face {
+            font-family: 'Glacial Indifference';
+            font-style: normal;
+            font-weight: 400;
+            src: local('Glacial Indifference'), url('https://fonts.cdnfonts.com/s/31913/GlacialIndifference-Regular.woff') format('woff');
+        }
+        @font-face {
+            font-family: 'Glacial Indifference';
+            font-style: normal;
+            font-weight: 700;
+            src: local('Glacial Indifference'), url('https://fonts.cdnfonts.com/s/31913/GlacialIndifference-Bold.woff') format('woff');
+        }
+        :root {
+            --offwhite:#f4f1e8;
+            --bg:#e9e7e7; --panel:#cfd8ff; --fg:#050505; --gray:#5f5f63;
+            --light:#f4f1e8; --border:#747474; --accent:#8fa2ff;
+            --topbar-bg:rgba(233,231,231,0.92); --tag-bg:#050505; --tag-fg:var(--offwhite);
+            --shadow:rgba(0,0,0,0.10);
+            --chip-bg:#1e1f24; --chip-fg:#f0f0f3; --chip-border:#383a42;
+            --headline-font:"Tiempos Headline","Tiempos Headline Web",Georgia,"Times New Roman",serif;
+            --radius:8px;
+        }
+        body[data-theme="pitch-black"] {
+            --bg:#000; --panel:#000; --fg:var(--offwhite); --gray:#a7a7a7;
+            --light:#111; --border:#2a2a2a; --accent:var(--offwhite);
+            --topbar-bg:rgba(0,0,0,0.92); --tag-bg:var(--offwhite); --tag-fg:#000;
+            --shadow:rgba(255,255,255,0.08);
+            --chip-bg:#23252b; --chip-fg:#f4f1e8; --chip-border:#3a3d47;
+        }
+        body[data-theme="palette-one"] {
+            --bg:#FFEBAF; --panel:#FFEBAF; --fg:#79b4c9; --gray:#5f91a3;
+            --light:#fff3cf; --border:var(--fg); --accent:var(--fg);
+            --topbar-bg:rgba(255,235,175,0.92); --tag-bg:var(--fg); --tag-fg:var(--bg);
+            --shadow:rgba(121,180,201,0.20);
+            --chip-bg:#5f91a3; --chip-fg:#fff3cf; --chip-border:#79b4c9;
+        }
+        body[data-theme="palette-two"] {
+            --bg:#FFEBAF; --panel:#FFEBAF; --fg:#EF5D64; --gray:#b94a50;
+            --light:#fff3cf; --border:var(--fg); --accent:var(--fg);
+            --topbar-bg:rgba(255,235,175,0.92); --tag-bg:var(--fg); --tag-fg:var(--bg);
+            --shadow:rgba(239,93,100,0.20);
+            --chip-bg:#b94a50; --chip-fg:#fff3cf; --chip-border:#EF5D64;
+        }
+        body[data-theme="palette-three"] {
+            --bg:#A37B47; --panel:#A37B47; --fg:#DBC88A; --gray:#6e4f2b;
+            --light:#926839; --border:var(--fg); --accent:var(--fg);
+            --topbar-bg:rgba(163,123,71,0.92); --tag-bg:var(--fg); --tag-fg:var(--bg);
+            --shadow:rgba(0,0,0,0.25);
+            --chip-bg:#47341c; --chip-fg:#DBC88A; --chip-border:#6e4f2b;
+        }
+        * { box-sizing:border-box; margin:0; padding:0; }
+        body {
+            font-family:"Glacial Indifference", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+            background:var(--bg);
+            color:var(--fg);
+            line-height:1.5;
+            min-height:100vh;
+        }
+
+        /* ── TOPBAR ── */
+        .topbar {
+            background: var(--topbar-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            color: var(--fg);
+            padding: 0 24px;
+            display: flex; align-items: center; justify-content: space-between;
+            height: 60px;
+            position: sticky; top: 0; z-index: 200;
+            border-bottom: 1px solid var(--border);
+        }
+        .topbar-left { display: flex; align-items: center; gap: 14px; }
+        .topbar-wordmark {
+            font-family: "Pinyon Script", "Parisienne", cursive;
+            font-size: 2.2rem;
+            line-height: 1;
+            cursor: pointer;
+            text-decoration: none;
+            color: var(--fg);
+            user-select: none;
+        }
+        .nav-link {
+            display: inline-flex; align-items: center; gap: 6px;
+            text-decoration: none; color: var(--gray);
+            font-size: 0.76rem; font-weight: 700;
+            letter-spacing: 0.5px; text-transform: uppercase;
+            padding: 5px 12px; border-radius: 20px;
+            border: 1px solid var(--border); background: var(--light);
+            transition: all 0.18s ease;
+        }
+        .nav-link:hover {
+            color: var(--fg); border-color: var(--fg); background: var(--bg);
+            transform: translateX(-2px);
+        }
+        .topbar-right { display: flex; align-items: center; gap: 12px; }
+        .settings-nav-btn {
+            display: flex; align-items: center; gap: 9px;
+            padding: 5px 12px 5px 6px;
+            background: var(--light); border: 1px solid var(--border);
+            border-radius: 24px; cursor: pointer;
+            color: var(--fg); text-decoration: none;
+            transition: all 0.18s ease; flex-shrink: 0;
+        }
+        .settings-nav-btn:hover { border-color: var(--fg); background: var(--bg); }
+        .user-chip { display: flex; align-items: center; gap: 7px; }
+        .user-chip-avatar {
+            width: 24px; height: 24px; border-radius: 50%;
+            background: var(--fg); color: var(--bg);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.68rem; font-weight: bold;
+        }
+        .user-chip-name { font-size: 0.72rem; font-weight: bold; letter-spacing: 0.5px; }
+        @media(max-width:600px) { .user-chip-name { display: none; } }
+        .settings-icon { font-size: 0.95rem; color: var(--fg); display: flex; align-items: center; }
+
+        /* ── BOOKMARKS CONTAINER ── */
+        .bookmarks-container {
+            width: min(880px, calc(100% - 40px));
+            margin: 36px auto 80px;
+            display: flex; flex-direction: column; gap: 24px;
+        }
+
+        .bookmarks-header {
+            display: flex; align-items: flex-start; justify-content: space-between;
+            flex-wrap: wrap; gap: 16px; border-bottom: 1px solid var(--border);
+            padding-bottom: 20px;
+        }
+        .bookmarks-title {
+            font-family: var(--headline-font);
+            font-size: 2.2rem; font-weight: 700;
+            color: var(--fg); line-height: 1.15;
+        }
+        .bookmarks-subtitle {
+            font-size: 0.85rem; color: var(--gray);
+            margin-top: 4px;
+        }
+
+        .clear-all-btn {
+            padding: 8px 16px; border-radius: 20px;
+            font-size: 0.76rem; font-weight: 700;
+            font-family: inherit; text-transform: uppercase;
+            letter-spacing: 0.6px; border: 1px solid #d32f2f;
+            background: transparent; color: #d32f2f;
+            cursor: pointer; transition: all 0.15s ease;
+        }
+        .clear-all-btn:hover {
+            background: #d32f2f; color: #ffffff;
+        }
+
+        /* ── BOOKMARKS LIST & CARDS ── */
+        .bookmarks-list {
+            display: flex; flex-direction: column; gap: 16px;
+        }
+        .bookmark-card {
+            display: grid; grid-template-columns: 140px 1fr auto;
+            gap: 18px; padding: 16px; border-radius: var(--radius);
+            border: 1px solid var(--border); background: var(--light);
+            align-items: center; transition: all 0.18s ease;
+        }
+        @media(max-width: 640px) {
+            .bookmark-card { grid-template-columns: 100px 1fr; gap: 12px; }
+            .card-actions { grid-column: 1 / -1; justify-content: flex-end; }
+        }
+        .bookmark-card:hover {
+            border-color: var(--fg); transform: translateY(-2px);
+            box-shadow: 0 6px 20px var(--shadow);
+        }
+
+        .card-thumb-wrapper {
+            position: relative; width: 100%; height: 90px;
+            border-radius: 6px; overflow: hidden;
+            border: 1px solid var(--border); background: var(--bg);
+        }
+        .card-thumb {
+            width: 100%; height: 100%; object-fit: cover;
+            display: block;
+        }
+
+        .card-content {
+            display: flex; flex-direction: column; gap: 6px;
+            min-width: 0;
+        }
+        .card-title-link {
+            text-decoration: none; color: var(--fg);
+            font-family: var(--headline-font); font-size: 1.1rem;
+            font-weight: 700; line-height: 1.25;
+            display: -webkit-box; -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical; overflow: hidden;
+            transition: color 0.15s;
+            cursor: pointer;
+        }
+        .card-title-link:hover { color: var(--accent); }
+        .card-snippet {
+            font-size: 0.82rem; color: var(--gray);
+            display: -webkit-box; -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical; overflow: hidden;
+            line-height: 1.4;
+        }
+        .card-meta {
+            display: flex; align-items: center; gap: 10px;
+            font-size: 0.72rem; color: var(--gray);
+            text-transform: uppercase; letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .card-actions { display: flex; align-items: center; gap: 8px; }
+        .remove-item-btn {
+            background: transparent; border: 1px solid var(--border);
+            color: var(--gray); padding: 6px 12px; border-radius: 16px;
+            font-size: 0.72rem; font-weight: 700; font-family: inherit;
+            cursor: pointer; transition: all 0.15s ease;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .remove-item-btn:hover {
+            border-color: #d32f2f; color: #d32f2f; background: rgba(211, 47, 47, 0.08);
+        }
+
+        .empty-bookmarks {
+            padding: 60px 20px; text-align: center;
+            border: 1px dashed var(--border); border-radius: var(--radius);
+            color: var(--gray); font-size: 0.95rem;
+            display: flex; flex-direction: column; align-items: center; gap: 14px;
+        }
+    </style>
+    <script>
+        (function() {
+            var theme = localStorage.getItem('lacuna_theme') || localStorage.getItem('newsTheme') || 'default';
+            if (theme && theme !== 'default') {
+                document.documentElement.setAttribute('data-theme', theme);
+                document.addEventListener('DOMContentLoaded', function() {
+                    document.body.setAttribute('data-theme', theme);
+                });
+            }
+        })();
+
+        function getFallbackSvg(title) {
+            const clean = (title || 'Bookmark').trim();
+            const hash = [...clean].reduce((acc, c) => (acc * 31 + c.charCodeAt(0)) | 0, 0);
+            const hue = Math.abs(hash) % 360;
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="250" viewBox="0 0 400 250">
+                <defs>
+                    <linearGradient id="g${hue}" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="hsl(${hue}, 35%, 16%)"/>
+                        <stop offset="100%" stop-color="hsl(${(hue + 40) % 360}, 30%, 10%)"/>
+                    </linearGradient>
+                </defs>
+                <rect width="400" height="250" fill="url(#g${hue})"/>
+                <circle cx="200" cy="110" r="60" fill="hsl(${hue}, 50%, 25%)" opacity="0.3"/>
+                <text x="200" y="130" fill="hsl(${hue}, 35%, 85%)" font-family="Glacial Indifference, sans-serif" font-size="14" font-weight="700" text-anchor="middle" letter-spacing="1">${clean.substring(0, 30).replace(/[<>&"]/g, '')}</text>
+            </svg>`;
+            return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+        }
+    </script>
+</head>
+<body data-testid="bookmarks-page">
+
+    <!-- ── TOPBAR ── -->
+    <header class="topbar" data-testid="topbar">
+        <div class="topbar-left">
+            <a href="/" class="topbar-wordmark" data-testid="topbar-wordmark">Lacuna</a>
+            <a href="/settings" class="nav-link" id="back-to-settings-btn" data-testid="back-to-settings-btn">← Settings</a>
+            <a href="/" class="nav-link" id="back-to-feed-btn" data-testid="back-to-feed-btn">Feed</a>
+            <a href="/history" class="nav-link" id="history-nav-btn" data-testid="history-nav-btn">History</a>
+        </div>
+        <div class="topbar-right">
+            <a class="settings-nav-btn" id="settings-nav-btn" data-testid="settings-nav-btn" href="/settings" title="Settings" aria-label="Settings">
+                <span class="user-chip">
+                    <span class="user-chip-avatar" data-testid="user-chip-avatar">{{ (user['username'] or 'U')[:1]|upper if user else 'U' }}</span>
+                    <span class="user-chip-name" data-testid="user-chip-name">{{ user['username'] if user else 'User' }}</span>
+                </span>
+            </a>
+        </div>
+    </header>
+
+    <!-- ── MAIN BOOKMARKS CONTAINER ── -->
+    <main class="bookmarks-container">
+        <div class="bookmarks-header">
+            <div>
+                <h1 class="bookmarks-title" data-testid="bookmarks-title">Saved Bookmarks</h1>
+                <p class="bookmarks-subtitle" id="bookmarks-count-label" data-testid="bookmarks-count">
+                    {{ bookmarks_count }} stor{{ 'ies' if bookmarks_count != 1 else 'y' }} saved
+                </p>
+            </div>
+            {% if bookmarks_count > 0 %}
+            <button type="button" class="clear-all-btn" id="clear-all-bookmarks-btn" data-testid="clear-all-bookmarks-btn" onclick="clearAllBookmarks()">
+                Clear All Bookmarks
+            </button>
+            {% endif %}
+        </div>
+
+        <div class="bookmarks-list" id="bookmarks-list" data-testid="bookmarks-grid">
+            {% if bookmark_items %}
+                {% for item in bookmark_items %}
+                <div class="bookmark-card" id="bookmark-card-{{ item.id }}" data-testid="bookmark-card" data-bookmark-id="{{ item.id }}">
+                    <div class="card-thumb-wrapper">
+                        {% set img_src = item.image_url or item.image or '' %}
+                        <img class="card-thumb" referrerpolicy="no-referrer" src="{{ img_src }}" alt="" onerror="this.onerror=null; this.src=getFallbackSvg('{{ (item.title or 'Story')|replace('\'', '\\\'')|replace('\"', '\\\"') }}');" />
+                    </div>
+                    <div class="card-content">
+                        <a href="javascript:void(0)" onclick="openBookmarkRoundup({{ item|tojson|forceescape }})" class="card-title-link" data-testid="bookmark-card-title">
+                            {{ item.title }}
+                        </a>
+                        <div class="card-snippet">{{ (item.article_text or '')[:140] }}...</div>
+                        <div class="card-meta">
+                            <span>{{ item.created_at[:10] if item.created_at else 'Saved' }}</span>
+                            {% if item.source_count %}
+                            <span>· {{ item.source_count }} Sources</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-actions">
+                        <button type="button" class="remove-item-btn" data-testid="remove-bookmark-btn" onclick="removeBookmarkItem({{ item.id }})" title="Remove bookmark" aria-label="Remove bookmark">
+                            Remove
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-bookmarks" id="empty-bookmarks" data-testid="empty-bookmarks">
+                    <p>You haven't saved any bookmarks yet. Click the bookmark icon on any story to save it for later!</p>
+                    <a href="/" class="nav-link" style="margin-top:8px;">← Return to Feed</a>
+                </div>
+            {% endif %}
+        </div>
+    </main>
+
+    <script>
+        function openBookmarkRoundup(item) {
+            const cluster = {
+                cluster_title: item.title,
+                cluster_image: item.image_url || item.image || '',
+                articles: item.sources && item.sources.length ? item.sources : [{ title: item.title, url: '#', summary: item.article_text || '' }]
+            };
+            try {
+                sessionStorage.setItem('active_roundup', JSON.stringify(cluster));
+            } catch(e) {}
+            window.location.href = '/roundup';
+        }
+
+        function removeBookmarkItem(id) {
+            fetch(`/api/bookmarks/${id}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const card = document.getElementById(`bookmark-card-${id}`);
+                    if (card) {
+                        card.style.opacity = '0';
+                        card.style.transform = 'scale(0.95)';
+                        setTimeout(() => {
+                            card.remove();
+                            updateCount();
+                        }, 180);
+                    }
+                }
+            })
+            .catch(err => console.error("Error removing bookmark", err));
+        }
+
+        function clearAllBookmarks() {
+            if (!confirm("Are you sure you want to clear all your saved bookmarks?")) {
+                return;
+            }
+            fetch('/api/bookmarks/clear', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const list = document.getElementById('bookmarks-list');
+                    list.innerHTML = `
+                        <div class="empty-bookmarks" id="empty-bookmarks" data-testid="empty-bookmarks">
+                            <p>You haven't saved any bookmarks yet. Click the bookmark icon on any story to save it for later!</p>
+                            <a href="/" class="nav-link" style="margin-top:8px;">← Return to Feed</a>
+                        </div>
+                    `;
+                    const clearBtn = document.getElementById('clear-all-bookmarks-btn');
+                    if (clearBtn) clearBtn.remove();
+                    const countLabel = document.getElementById('bookmarks-count-label');
+                    if (countLabel) countLabel.textContent = '0 stories saved';
+                }
+            })
+            .catch(err => console.error("Error clearing bookmarks", err));
+        }
+
+        function updateCount() {
+            const cards = document.querySelectorAll('.bookmark-card');
+            const count = cards.length;
+            const countLabel = document.getElementById('bookmarks-count-label');
+            if (countLabel) {
+                countLabel.textContent = `${count} stor${count !== 1 ? 'ies' : 'y'} saved`;
+            }
+            if (count === 0) {
+                const list = document.getElementById('bookmarks-list');
+                list.innerHTML = `
+                    <div class="empty-bookmarks" id="empty-bookmarks" data-testid="empty-bookmarks">
+                        <p>You haven't saved any bookmarks yet. Click the bookmark icon on any story to save it for later!</p>
+                        <a href="/" class="nav-link" style="margin-top:8px;">← Return to Feed</a>
+                    </div>
+                `;
+                const clearBtn = document.getElementById('clear-all-bookmarks-btn');
+                if (clearBtn) clearBtn.remove();
+            }
+        }
+    </script>
+</body>
+</html>
