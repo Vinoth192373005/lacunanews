@@ -1,0 +1,39 @@
+{
+  "rules": {
+    "username": {
+      "required": true,
+      "minLength": 3,
+      "maxLength": 30,
+      "regex": "^[a-zA-Z0-9_.-]+$"
+    },
+    "password": {
+      "required": true,
+      "minLength": 6,
+      "maxLength": 128,
+      "complexity": true
+    },
+    "email": {
+      "required": false,
+      "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+    },
+    "interestTopic": {
+      "required": true,
+      "minLength": 2,
+      "maxLength": 50
+    },
+    "region": {
+      "allowed": ["US", "UK", "IN", "CA", "AU", "GLOBAL"]
+    },
+    "theme": {
+      "allowed": ["default", "pitch-black", "palette-one", "palette-two", "palette-three"]
+    }
+  },
+  "boundaryCases": [
+    { "field": "username", "value": "ab", "valid": false, "reason": "Below min length" },
+    { "field": "username", "value": "valid_user_123", "valid": true, "reason": "Standard valid username" },
+    { "field": "username", "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "valid": false, "reason": "Exceeds max length" },
+    { "field": "password", "value": "12345", "valid": false, "reason": "Below 6 chars" },
+    { "field": "password", "value": "ValidPass123!", "valid": true, "reason": "Meets complexity" },
+    { "field": "interestTopic", "value": "AI & Robotics", "valid": true, "reason": "Valid topic" }
+  ]
+}

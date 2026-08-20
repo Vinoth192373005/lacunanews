@@ -27,6 +27,18 @@ instance/
 .mypy_cache/
 .ruff_cache/
 
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.mocharc.cache
+
+# Logs and Diagnostics
+logs/
+reports/mochawesome/
+reports/failures/
+
 # Android
 android/.gradle/
 android/local.properties
@@ -37,4 +49,3 @@ lacuna-android/**/build/
 .idea/
 *.apk
 *.aab
-

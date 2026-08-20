@@ -1,0 +1,45 @@
+{
+  "sqli": [
+    "' OR '1'='1",
+    "' OR 1=1 --",
+    "admin' --",
+    "' UNION SELECT null, username, password FROM users --",
+    "1; DROP TABLE users;--",
+    "' OR 'a'='a",
+    "\" OR \"1\"=\"1",
+    "'; WAITFOR DELAY '0:0:5'--",
+    "1' ORDER BY 1--+",
+    "1' ORDER BY 10--+"
+  ],
+  "xss": [
+    "<script>alert('XSS')</script>",
+    "<img src=x onerror=alert('XSS')>",
+    "<svg onload=alert('XSS')>",
+    "javascript:alert('XSS')",
+    "'\"><script>alert(1)</script>",
+    "<iframe src=\"javascript:alert(`xss`)\"></iframe>",
+    "<body onload=alert('XSS')>",
+    "<input autofocus onfocus=alert(1)>",
+    "<details open ontoggle=alert(1)>",
+    "'\"><img src=x onerror=alert(document.cookie)>"
+  ],
+  "pathTraversal": [
+    "../../../../etc/passwd",
+    "..%2f..%2f..%2f..%2fetc%2fpasswd",
+    "..\\..\\..\\windows\\win.ini",
+    "....//....//....//etc/passwd",
+    "/etc/shadow"
+  ],
+  "ssti": [
+    "{{7*7}}",
+    "${7*7}",
+    "<%= 7*7 %>",
+    "{{config.items()}}",
+    "{{''.__class__.__mro__[1].__subclasses__()}}"
+  ],
+  "idor": [
+    { "endpoint": "/api/bookmarks/999999", "method": "DELETE", "expected": [401, 403, 404] },
+    { "endpoint": "/api/history/999999", "method": "DELETE", "expected": [401, 403, 404] },
+    { "endpoint": "/api/interests/999999", "method": "DELETE", "expected": [401, 403, 404] }
+  ]
+}

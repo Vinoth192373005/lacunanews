@@ -1,0 +1,16 @@
+{
+  "concurrencyProfiles": [
+    { "name": "Light Load (5 VU)", "vu": 5, "requestsPerVu": 10, "targetRps": 50 },
+    { "name": "Medium Load (15 VU)", "vu": 15, "requestsPerVu": 10, "targetRps": 100 },
+    { "name": "High Load (30 VU)", "vu": 30, "requestsPerVu": 5, "targetRps": 150 },
+    { "name": "Spike Burst (50 VU)", "vu": 50, "requestsPerVu": 2, "targetRps": 200 }
+  ],
+  "slaThresholds": {
+    "homepage_p95_ms": 200,
+    "api_cluster_p95_ms": 300,
+    "api_regions_p95_ms": 150,
+    "settings_page_p95_ms": 200,
+    "login_page_p95_ms": 200,
+    "error_rate_max_percent": 0.0
+  }
+}

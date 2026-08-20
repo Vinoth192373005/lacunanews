@@ -1,0 +1,99 @@
+name: Enterprise QA E2E Automation (1200 Tests)
+
+on:
+  push:
+    branches: [ main, master, '**' ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  enterprise-qa-execution:
+    name: Execute 1,200 Multi-Engine Tests & Generate Excel Reports
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 2. Setup Node.js v20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 3. Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 4. Install Python Backend Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: 5. Install Node.js QA Framework Dependencies
+        run: |
+          npm ci || npm install
+
+      - name: 6. Install Google Chrome & Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget curl unzip libxi6 libgconf-2-4 libnss3 xvfb
+          google-chrome --version || true
+
+      - name: 7. Start Live Flask Server in Background
+        run: |
+          python -c "import news; news.init_db()"
+          python news.py &
+          sleep 4
+          curl -I http://127.0.0.1:5001 || curl -I http://127.0.0.1:5000 || true
+        env:
+          PORT: 5001
+          SECRET_KEY: ci-secret-key-enterprise-1200
+
+      - name: 8. Execute All 1,200 Automated Tests (Selenium, Appium, Vulnerability, Load)
+        run: |
+          npm test
+        env:
+          BASE_URL: http://127.0.0.1:5001
+          TEST_PORT: 5001
+          HEADLESS: "true"
+          CI: "true"
+
+      - name: 9. Generate Mochawesome HTML Report
+        if: always()
+        run: |
+          npm run test:mocha || true
+
+      - name: 10. Upload Excel Reports Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Enterprise_Excel_Reports
+          path: |
+            reports/excel/Master_Enterprise_1200_Report.xlsx
+            reports/excel/E2E_Report.xlsx
+            reports/excel/Mobile_E2E_Report.xlsx
+            reports/excel/Vulnerability_Report.xlsx
+            reports/excel/Load_Report.xlsx
+          retention-days: 30
+
+      - name: 11. Upload HTML Reports & Dashboards Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mochawesome_HTML_Report
+          path: reports/mochawesome/
+          retention-days: 30
+
+      - name: 12. Upload Failure Screenshots & Logs Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Execution_Logs_and_Screenshots
+          path: |
+            logs/
+            reports/failures/
+          retention-days: 30

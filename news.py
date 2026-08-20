@@ -15,6 +15,7 @@ import math
 import hashlib
 import json
 import os
+import secrets
 import sqlite3
 import pandas as pd
 import urllib.parse
@@ -132,11 +133,21 @@ def init_db():
                 CREATE TABLE IF NOT EXISTS users (
                     id SERIAL PRIMARY KEY,
                     username TEXT NOT NULL UNIQUE,
-                    password_hash TEXT NOT NULL,
+                    email TEXT UNIQUE,
+                    google_id TEXT UNIQUE,
+                    avatar_url TEXT,
+                    preferred_region TEXT DEFAULT 'US',
+                    password_hash TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
                 """
             )
+            # Safe column migrations for existing postgres tables
+            for col in ["email", "google_id", "avatar_url", "preferred_region"]:
+                try:
+                    db.execute(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col} TEXT")
+                except Exception:
+                    pass
             db.execute(
                 """
                 CREATE TABLE IF NOT EXISTS article_history (
@@ -151,17 +162,54 @@ def init_db():
                 )
                 """
             )
+            db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS user_interests (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+                    interest TEXT NOT NULL,
+                    source_type TEXT NOT NULL DEFAULT 'manual',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT uq_user_interest UNIQUE (user_id, interest)
+                )
+                """
+            )
+            db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS bookmarks (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+                    title TEXT NOT NULL,
+                    article_text TEXT NOT NULL DEFAULT '',
+                    image_url TEXT,
+                    source_count INTEGER NOT NULL DEFAULT 0,
+                    sources_json TEXT NOT NULL DEFAULT '[]',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT uq_user_bookmark UNIQUE (user_id, title)
+                )
+                """
+            )
         else:
             db.execute(
                 """
                 CREATE TABLE IF NOT EXISTS users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     username TEXT NOT NULL UNIQUE,
-                    password_hash TEXT NOT NULL,
+                    email TEXT UNIQUE,
+                    google_id TEXT UNIQUE,
+                    avatar_url TEXT,
+                    preferred_region TEXT DEFAULT 'US',
+                    password_hash TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
                 """
             )
+            # Safe column migrations for existing sqlite tables
+            for col in ["email", "google_id", "avatar_url", "preferred_region"]:
+                try:
+                    db.execute(f"ALTER TABLE users ADD COLUMN {col} TEXT")
+                except Exception:
+                    pass
             db.execute(
                 """
                 CREATE TABLE IF NOT EXISTS article_history (
@@ -174,6 +222,35 @@ def init_db():
                     sources_json TEXT NOT NULL DEFAULT '[]',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (user_id) REFERENCES users (id)
+                )
+                """
+            )
+            db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS user_interests (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    interest TEXT NOT NULL,
+                    source_type TEXT NOT NULL DEFAULT 'manual',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+                    UNIQUE (user_id, interest)
+                )
+                """
+            )
+            db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS bookmarks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    title TEXT NOT NULL,
+                    article_text TEXT NOT NULL DEFAULT '',
+                    image_url TEXT,
+                    source_count INTEGER NOT NULL DEFAULT 0,
+                    sources_json TEXT NOT NULL DEFAULT '[]',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+                    UNIQUE (user_id, title)
                 )
                 """
             )
@@ -210,9 +287,22 @@ def current_user():
         return None
     with get_db() as db:
         return db.execute(
-            f"SELECT id, username, created_at FROM users WHERE id = {sql_param()}",
+            f"SELECT id, username, email, google_id, avatar_url, preferred_region, created_at FROM users WHERE id = {sql_param()}",
             (user_id,),
         ).fetchone()
+
+
+def get_user_region(user=None):
+    if user is None:
+        user = current_user()
+    if user:
+        try:
+            val = user["preferred_region"]
+            if val:
+                return str(val).upper()
+        except (KeyError, IndexError, TypeError):
+            pass
+    return (session.get("region") or DEFAULT_REGION).upper()
 
 
 def history_row_to_dict(row):
@@ -226,21 +316,277 @@ def history_row_to_dict(row):
     if hasattr(created_at, "isoformat"):
         created_at = created_at.isoformat()
 
+    img = row["image_url"]
     return {
         "id": row["id"],
         "title": row["title"],
         "article": row["article_text"],
-        "image": row["image_url"],
+        "article_text": row["article_text"],
+        "image": img,
+        "image_url": img,
+        "cluster_image": img,
         "source_count": row["source_count"],
         "sources": sources,
         "created_at": created_at,
     }
 
 
+def bookmark_row_to_dict(row):
+    sources_raw = row["sources_json"] if row["sources_json"] else "[]"
+    try:
+        sources = json.loads(sources_raw)
+    except (TypeError, ValueError):
+        sources = []
+
+    created_at = row["created_at"]
+    if hasattr(created_at, "isoformat"):
+        created_at = created_at.isoformat()
+
+    img = row["image_url"]
+    return {
+        "id": row["id"],
+        "title": row["title"],
+        "article": row["article_text"],
+        "article_text": row["article_text"],
+        "image": img,
+        "image_url": img,
+        "cluster_image": img,
+        "source_count": row["source_count"],
+        "sources": sources,
+        "created_at": created_at,
+    }
+
+
+def normalize_interest_term(term: str) -> str:
+    """Normalize interest term: clean whitespace, strip punctuation noise, clean capitalization."""
+    if not term:
+        return ""
+    t = str(term).strip()
+    t = re.sub(r'https?://\S+', '', t)
+    t = re.sub(r'[\r\n\t_]+', ' ', t)
+    t = re.sub(r'^[^\w#/@]+|[^\w#/@]+$', '', t.strip())
+    if not t:
+        return ""
+    if re.match(r'^r/[A-Za-z0-9_]+$', t, re.I):
+        parts = t.split('/')
+        return f"r/{parts[1]}"
+    if len(t) <= 4 and t.isupper():
+        return t
+    if t.islower():
+        words = [w.capitalize() if len(w) > 2 else w.upper() for w in t.split()]
+        t = " ".join(words)
+    return t[:60].strip()
+
+
+def save_user_interest(user_id: int, interest: str, source_type: str = "manual"):
+    if not user_id:
+        return None
+    clean = normalize_interest_term(interest)
+    if not clean or len(clean) < 2 or clean.lower() in ("__home__", "home", "all", "news", "undefined", "null", "none"):
+        return None
+    try:
+        with get_db() as db:
+            if USE_POSTGRES:
+                db.execute(
+                    """
+                    INSERT INTO user_interests (user_id, interest, source_type)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (user_id, interest) DO UPDATE SET created_at = CURRENT_TIMESTAMP
+                    """,
+                    (user_id, clean, source_type),
+                )
+            else:
+                db.execute(
+                    """
+                    INSERT INTO user_interests (user_id, interest, source_type)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(user_id, interest) DO UPDATE SET created_at = CURRENT_TIMESTAMP
+                    """,
+                    (user_id, clean, source_type),
+                )
+        return clean
+    except Exception as e:
+        app.logger.warning("Failed to save user interest: %s", e)
+        return None
+
+
+def get_user_interests(user_id: int):
+    if not user_id:
+        return []
+    with get_db() as db:
+        rows = db.execute(
+            f"""
+            SELECT id, interest, source_type, created_at
+            FROM user_interests
+            WHERE user_id = {sql_param()}
+            ORDER BY created_at DESC, id DESC
+            LIMIT 100
+            """,
+            (user_id,),
+        ).fetchall()
+        result = []
+        for r in rows:
+            created_at = r["created_at"]
+            if hasattr(created_at, "isoformat"):
+                created_at = created_at.isoformat()
+            elif created_at is not None:
+                created_at = str(created_at)
+            result.append({
+                "id": r["id"],
+                "interest": r["interest"],
+                "source_type": r["source_type"],
+                "created_at": created_at,
+            })
+        return result
+
+
+def delete_user_interest(user_id: int, interest_id: int = None, interest_name: str = None):
+    if not user_id:
+        return False
+    with get_db() as db:
+        if interest_id is not None:
+            db.execute(
+                f"DELETE FROM user_interests WHERE user_id = {sql_param()} AND id = {sql_param()}",
+                (user_id, interest_id),
+            )
+        elif interest_name:
+            db.execute(
+                f"DELETE FROM user_interests WHERE user_id = {sql_param()} AND LOWER(interest) = LOWER({sql_param()})",
+                (user_id, str(interest_name).strip()),
+            )
+    return True
+
+
+def clear_user_interests(user_id: int):
+    if not user_id:
+        return False
+    with get_db() as db:
+        db.execute(
+            f"DELETE FROM user_interests WHERE user_id = {sql_param()}",
+            (user_id,),
+        )
+    return True
+
+
+CATEGORY_TAXONOMY = {
+    "Technology": [
+        "tech", "technology", "artificial intelligence", "ai", "machine learning", "software", "hardware",
+        "apple", "google", "microsoft", "meta", "nvidia", "openai", "semiconductor", "semiconductors",
+        "chip", "chips", "cybersecurity", "cyber", "hack", "hacker", "crypto", "bitcoin", "blockchain",
+        "smartphone", "smartphones", "iphone", "ipad", "android", "gadget", "gadgets", "app", "apps",
+        "robot", "robots", "robotics", "quantum", "computing", "cloud", "algorithm", "startup", "startups",
+        "internet", "browser", "windows", "linux", "metaverse", "chatgpt", "deepseek", "anthropic",
+        "data", "database", "neural", "gpu", "server"
+    ],
+    "Business": [
+        "business", "economy", "economic", "economics", "market", "markets", "stock", "stocks", "wall street",
+        "nasdaq", "dow jones", "s&p", "finance", "financial", "banking", "bank", "banks", "federal reserve",
+        "fed", "inflation", "recession", "gdp", "earnings", "revenue", "profit", "quarterly", "investor",
+        "investors", "investment", "investments", "shares", "trade", "tariff", "tariffs", "ceo", "merger",
+        "acquisition", "deal", "commerce", "retail", "real estate", "housing", "mortgage", "fund",
+        "venture capital", "corporate", "corporation", "sales", "export", "import"
+    ],
+    "Sports": [
+        "sport", "sports", "football", "soccer", "nfl", "nba", "mlb", "nhl", "premier league", "champions league",
+        "la liga", "serie a", "bundesliga", "fifa", "uefa", "basketball", "baseball", "tennis", "cricket",
+        "golf", "olympics", "olympic", "f1", "formula 1", "racing", "grand prix", "ufc", "mma", "boxing",
+        "rugby", "athlete", "athletes", "coach", "tournament", "championship", "playoffs", "stadium",
+        "match", "goal", "score", "touchdown", "quarterback", "super bowl", "world cup", "wimbledon", "club"
+    ],
+    "Health": [
+        "health", "healthy", "medicine", "medical", "disease", "diseases", "virus", "viral", "vaccine",
+        "vaccines", "vaccination", "fda", "cdc", "who", "cancer", "tumor", "diabetes", "heart", "cardiac",
+        "mental health", "depression", "anxiety", "therapy", "diet", "nutrition", "fitness", "workout",
+        "hospital", "hospitals", "doctor", "doctors", "patient", "patients", "clinical", "trial", "trials",
+        "pharma", "pharmaceutical", "drug", "drugs", "treatment", "treatments", "cure", "surgery",
+        "pandemic", "epidemic", "wellness", "physician", "healthcare", "brain", "syndrome"
+    ],
+    "Science": [
+        "science", "scientific", "scientist", "scientists", "space", "nasa", "esa", "spacex", "astronomy",
+        "astronomer", "telescope", "james webb", "hubble", "mars", "moon", "lunar", "orbit", "planet",
+        "planets", "solar system", "galaxy", "universe", "cosmos", "physics", "physicist", "quantum",
+        "biology", "biologist", "genetics", "dna", "crispr", "evolution", "fossil", "dinosaur", "climate change",
+        "global warming", "environment", "ecology", "ocean", "geology", "earthquake", "volcano", "asteroid"
+    ],
+    "Culture": [
+        "culture", "entertainment", "movie", "movies", "film", "films", "cinema", "actor", "actors",
+        "actress", "hollywood", "celebrity", "celebrities", "music", "musical", "album", "song", "songs",
+        "singer", "artist", "artists", "concert", "tour", "grammy", "grammys", "oscar", "oscars", "emmy",
+        "emmys", "tv", "television", "series", "season", "trailer", "streaming", "netflix", "disney",
+        "hbo", "spotify", "game", "games", "gaming", "playstation", "xbox", "nintendo", "steam", "book",
+        "books", "author", "novel", "art", "museum", "exhibition", "fashion", "runway", "broadway", "theater"
+    ],
+    "Politics": [
+        "politics", "political", "politician", "politicians", "election", "elections", "vote", "voters",
+        "voting", "ballot", "democrat", "democrats", "republican", "republicans", "gop", "biden", "trump",
+        "white house", "congress", "senate", "senator", "senators", "house of representatives", "parliament",
+        "prime minister", "president", "presidential", "governor", "mayor", "legislation", "bill", "law",
+        "supreme court", "justice", "judge", "attorney general", "doj", "sanction", "sanctions", "diplomacy",
+        "diplomat", "treaty", "ambassador", "foreign policy", "geopolitics", "war", "military", "defense",
+        "pentagon", "nato", "united nations", "un"
+    ]
+}
+
+
+def classify_article_category(title: str, article_text: str = "", sources: list = None) -> str:
+    """Determine the topic category of an article instead of using its raw title."""
+    combined = ((title or "") + " ") * 4 + ((article_text or "")[:1500] + " ")
+    if sources:
+        combined += " ".join((s.get("title") or "") for s in sources[:6])
+    combined_lower = combined.lower()
+
+    scores = {}
+    for cat, keywords in CATEGORY_TAXONOMY.items():
+        score = 0
+        for kw in keywords:
+            if " " in kw:
+                if kw in combined_lower:
+                    score += 3
+            else:
+                matches = len(re.findall(r'\b' + re.escape(kw) + r'\b', combined_lower))
+                score += matches
+        if score > 0:
+            scores[cat] = score
+
+    if scores:
+        best_cat = max(scores, key=scores.get)
+        if scores[best_cat] >= 1:
+            return best_cat
+
+    for key in ("technology", "business", "sports", "health", "culture", "science", "politics", "world"):
+        if key in combined_lower:
+            return key.title()
+
+    return "General News"
+
+
+def save_interests_from_roundup(user_id: int, title: str, sources: list = None, article_text: str = ""):
+    """Automatically record the category of an article when a user reads a roundup."""
+    if not user_id:
+        return
+    category = classify_article_category(title, article_text=article_text, sources=sources)
+    if category and category != "General News":
+        save_user_interest(user_id, category, source_type="read")
+
+
 def save_article_history(title, article_text, image_url, sources):
     user = current_user()
     if user is None or not article_text:
         return
+
+    # Automatically extract image from sources if not provided directly
+    if not image_url and sources:
+        for s in sources:
+            img = s.get("image") or s.get("image_url") or s.get("cluster_image")
+            if img and is_valid_img(img):
+                image_url = img
+                break
+
+    # Automatically save user interests from the read roundup
+    try:
+        save_interests_from_roundup(user["id"], title, sources=sources, article_text=article_text)
+    except Exception as e:
+        app.logger.warning("save_interests_from_roundup failed: %s", e)
 
     cleaned_sources = [
         {
@@ -944,8 +1290,8 @@ def fallback_image(title, query="", offset=0):
 <circle cx="{x1}" cy="{y1}" r="210" fill="{primary}" opacity=".22"/>
 <circle cx="{x2}" cy="{y2}" r="260" fill="{secondary}" opacity=".20"/>
 <path d="M80 610 C260 520 380 720 560 610 S870 510 1120 620" fill="none" stroke="{primary}" stroke-width="16" opacity=".55"/>
-<text x="86" y="124" fill="{text_color}" font-family="Courier New, monospace" font-size="28" font-weight="700" letter-spacing="4">{safe_label}</text>
-<text x="86" y="664" fill="{text_color}" font-family="Courier New, monospace" font-size="50" font-weight="700">{safe_title}</text>
+<text x="86" y="124" fill="{text_color}" font-family="Glacial Indifference, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="28" font-weight="700" letter-spacing="4">{safe_label}</text>
+<text x="86" y="664" fill="{text_color}" font-family="Glacial Indifference, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="50" font-weight="700">{safe_title}</text>
 </svg>"""
     img_url = "data:image/svg+xml;charset=utf-8," + urllib.parse.quote(svg)
     _fallback_image_cache[cache_key] = img_url
@@ -1727,6 +2073,17 @@ def cluster_articles(articles, query=''):
         base = (rel * size_boost) if query_scores else size_boost
         return base + api_image_bonus + rss_support_bonus
 
+    user_interest_terms = set()
+    try:
+        u = current_user()
+        if u:
+            for r in get_user_interests(u["id"]):
+                t_low = r["interest"].strip().lower()
+                if t_low:
+                    user_interest_terms.add(t_low)
+    except Exception:
+        pass
+
     def home_cluster_score(cid):
         arts = temp[cid]
         source_names = {
@@ -1741,7 +2098,18 @@ def cluster_articles(articles, query=''):
         image_bonus = 1.0 if has_image else 0.0
         support_bonus = min(1.8, sum(1 for a in arts if a.get('_source_kind') == 'rss_support') * 0.25)
         single_source_penalty = -3.5 if len(arts) == 1 else 0.0
-        return best_article * 0.70 + avg_article * 0.80 + coverage + image_bonus + support_bonus + single_source_penalty
+
+        interest_bonus = 0.0
+        if user_interest_terms:
+            combined_text = " ".join([
+                (a.get('title') or '') + " " + (a.get('source') or '') + " " + (a.get('summary') or '')
+                for a in arts
+            ]).lower()
+            for term in user_interest_terms:
+                if term in combined_text:
+                    interest_bonus += 3.5
+
+        return best_article * 0.70 + avg_article * 0.80 + coverage + image_bonus + support_bonus + single_source_penalty + interest_bonus
 
     def ranking_score(cid):
         if query == HOME_QUERY:
@@ -1852,12 +2220,23 @@ def cluster_articles(articles, query=''):
 @app.route('/api/cluster')
 @login_required
 def api_cluster():
-    query = request.args.get('q', '')
-    region = request.args.get('region', DEFAULT_REGION).upper()
+    query = request.args.get('q', '').strip()
+    user = current_user()
+    user_reg = get_user_region(user)
+    region = request.args.get('region', user_reg).strip().upper()
     if region not in REGIONS:
-        region = DEFAULT_REGION
+        region = user_reg if user_reg in REGIONS else DEFAULT_REGION
     if not query:
         return jsonify({})
+
+    # Record search query as a user interest
+    if user and query and query != HOME_QUERY and query.lower() not in ('business', 'technology', 'sports', 'health', 'culture'):
+        save_user_interest(user["id"], query, source_type="search")
+
+    mock_clusters = app.config.get('MOCK_CLUSTERS')
+    if mock_clusters is not None:
+        return jsonify(mock_clusters)
+
     clusters = cluster_articles(fetch_search_articles(query, region_code=region), query=query)
     return jsonify(json_safe(clusters))
 
@@ -1866,6 +2245,24 @@ def api_cluster():
 @login_required
 def api_regions():
     return jsonify({code: info['label'] for code, info in REGIONS.items()})
+
+
+@app.route('/api/region', methods=['POST'])
+@login_required
+def api_set_region():
+    user = current_user()
+    data = request.get_json(silent=True) or request.form
+    region = (data.get('region') or '').strip().upper()
+    if region not in REGIONS:
+        return jsonify({"error": f"Invalid region '{region}'"}), 400
+
+    session['region'] = region
+    with get_db() as db:
+        db.execute(
+            f"UPDATE users SET preferred_region = {sql_param()} WHERE id = {sql_param()}",
+            (region, user["id"]),
+        )
+    return jsonify({"success": True, "region": region})
 
 
 @app.route('/api/account')
@@ -1887,11 +2284,21 @@ def api_account():
         ).fetchone()
         history_count = count_row["total"] if count_row else 0
 
+        bm_row = db.execute(
+            f"SELECT COUNT(*) AS total FROM bookmarks WHERE user_id = {sql_param()}",
+            (user["id"],),
+        ).fetchone()
+        bookmarks_count = bm_row["total"] if bm_row else 0
+
     return jsonify({
         "id": user["id"],
         "username": user["username"],
+        "email": user["email"] or "",
+        "avatar_url": user["avatar_url"] or "",
+        "preferred_region": get_user_region(user),
         "created_at": created_at,
         "history_count": history_count,
+        "bookmarks_count": bookmarks_count,
     })
 
 
@@ -1923,6 +2330,181 @@ def api_history_clear():
             (user["id"],),
         )
     return jsonify({"success": True})
+
+
+@app.route('/api/history/<int:history_id>', methods=['DELETE', 'POST'])
+@login_required
+def api_history_item_delete(history_id):
+    user = current_user()
+    with get_db() as db:
+        db.execute(
+            f"DELETE FROM article_history WHERE id = {sql_param()} AND user_id = {sql_param()}",
+            (history_id, user["id"]),
+        )
+    return jsonify({"success": True, "id": history_id})
+
+
+@app.route('/api/history/remove', methods=['POST'])
+@login_required
+def api_history_remove():
+    user = current_user()
+    data = request.get_json(silent=True) or request.form
+    history_id = data.get('id')
+    if not history_id:
+        return jsonify({"error": "History ID required"}), 400
+    with get_db() as db:
+        db.execute(
+            f"DELETE FROM article_history WHERE id = {sql_param()} AND user_id = {sql_param()}",
+            (int(history_id), user["id"]),
+        )
+    return jsonify({"success": True, "id": history_id})
+
+
+@app.route('/api/bookmarks', methods=['GET'])
+@login_required
+def api_bookmarks():
+    user = current_user()
+    with get_db() as db:
+        rows = db.execute(
+            f"""
+            SELECT id, title, article_text, image_url, source_count, sources_json, created_at
+            FROM bookmarks
+            WHERE user_id = {sql_param()}
+            ORDER BY created_at DESC, id DESC
+            LIMIT 100
+            """,
+            (user["id"],),
+        ).fetchall()
+    return jsonify([bookmark_row_to_dict(row) for row in rows])
+
+
+@app.route('/api/bookmarks/toggle', methods=['POST'])
+@login_required
+def api_bookmarks_toggle():
+    user = current_user()
+    data = request.get_json(silent=True) or request.form
+    title = (data.get('title') or '').strip()
+    if not title:
+        return jsonify({"error": "Title is required"}), 400
+
+    article_text = (data.get('article_text') or data.get('article') or '').strip()
+    image_url = (data.get('image_url') or data.get('image') or '').strip()
+    sources = data.get('sources') or []
+    if isinstance(sources, str):
+        try:
+            sources = json.loads(sources)
+        except Exception:
+            sources = []
+
+    if not image_url and sources:
+        for s in sources:
+            img = s.get("image") or s.get("image_url") or s.get("cluster_image")
+            if img and is_valid_img(img):
+                image_url = img
+                break
+
+    cleaned_sources = [
+        {
+            "title": (s.get("title") or "").strip(),
+            "url": (s.get("url") or "").strip(),
+        }
+        for s in sources
+        if s.get("url")
+    ][:12]
+
+    with get_db() as db:
+        existing = db.execute(
+            f"SELECT id FROM bookmarks WHERE user_id = {sql_param()} AND title = {sql_param()}",
+            (user["id"], title[:240]),
+        ).fetchone()
+
+        if existing:
+            db.execute(
+                f"DELETE FROM bookmarks WHERE id = {sql_param()} AND user_id = {sql_param()}",
+                (existing["id"], user["id"]),
+            )
+            return jsonify({"bookmarked": False, "id": existing["id"], "action": "removed"})
+        else:
+            param = sql_param()
+            db.execute(
+                f"""
+                INSERT INTO bookmarks
+                    (user_id, title, article_text, image_url, source_count, sources_json)
+                VALUES ({param}, {param}, {param}, {param}, {param}, {param})
+                """,
+                (
+                    user["id"],
+                    title[:240],
+                    article_text,
+                    image_url,
+                    len(cleaned_sources),
+                    json.dumps(cleaned_sources),
+                ),
+            )
+            created = db.execute(
+                f"SELECT * FROM bookmarks WHERE user_id = {sql_param()} AND title = {sql_param()}",
+                (user["id"], title[:240]),
+            ).fetchone()
+            return jsonify({
+                "bookmarked": True,
+                "bookmark": bookmark_row_to_dict(created) if created else None,
+                "action": "added"
+            })
+
+
+@app.route('/api/bookmarks/<int:bookmark_id>', methods=['DELETE', 'POST'])
+@login_required
+def api_bookmarks_item_delete(bookmark_id):
+    user = current_user()
+    with get_db() as db:
+        db.execute(
+            f"DELETE FROM bookmarks WHERE id = {sql_param()} AND user_id = {sql_param()}",
+            (bookmark_id, user["id"]),
+        )
+    return jsonify({"success": True, "id": bookmark_id})
+
+
+@app.route('/api/bookmarks/remove', methods=['POST'])
+@login_required
+def api_bookmarks_remove():
+    user = current_user()
+    data = request.get_json(silent=True) or request.form
+    bookmark_id = data.get('id')
+    if not bookmark_id:
+        return jsonify({"error": "Bookmark ID required"}), 400
+    with get_db() as db:
+        db.execute(
+            f"DELETE FROM bookmarks WHERE id = {sql_param()} AND user_id = {sql_param()}",
+            (int(bookmark_id), user["id"]),
+        )
+    return jsonify({"success": True, "id": bookmark_id})
+
+
+@app.route('/api/bookmarks/clear', methods=['POST'])
+@login_required
+def api_bookmarks_clear():
+    user = current_user()
+    with get_db() as db:
+        db.execute(
+            f"DELETE FROM bookmarks WHERE user_id = {sql_param()}",
+            (user["id"],),
+        )
+    return jsonify({"success": True})
+
+
+@app.route('/api/bookmarks/check', methods=['GET'])
+@login_required
+def api_bookmarks_check():
+    user = current_user()
+    title = (request.args.get('title') or '').strip()
+    if not title:
+        return jsonify({"bookmarked": False})
+    with get_db() as db:
+        existing = db.execute(
+            f"SELECT id FROM bookmarks WHERE user_id = {sql_param()} AND title = {sql_param()}",
+            (user["id"], title[:240]),
+        ).fetchone()
+    return jsonify({"bookmarked": bool(existing), "id": existing["id"] if existing else None})
 
 
 def scrape_article_text(url, max_chars=4000):
@@ -1976,8 +2558,13 @@ def api_synthesize():
     cluster_image = (data.get('image') or '').strip() or None
     articles = data.get('articles', [])[:12]
 
-    if not articles:
+    if not articles and not cluster_title:
         return jsonify({'error': 'No articles provided'}), 400
+
+    mock_synth = app.config.get('MOCK_SYNTHESIZE')
+    if mock_synth is not None:
+        save_article_history(cluster_title, mock_synth, cluster_image, articles)
+        return jsonify({'article': mock_synth})
 
     urls_to_scrape = [a['url'] for a in articles if a.get('url')][:8]
     scraped = {}
@@ -2053,11 +2640,224 @@ def api_synthesize():
     return jsonify({'article': article_text})
 
 
+@app.route('/favicon.ico')
+def favicon():
+    return '', 204
+
+
 @app.route('/')
 @login_required
 def index():
+    user = current_user()
     regions_json = {code: info['label'] for code, info in REGIONS.items()}
-    return render_template('index.html', regions=regions_json, user=current_user())
+    user_reg = get_user_region(user)
+    return render_template(
+        'index.html',
+        regions=regions_json,
+        user=user,
+        default_region=user_reg,
+    )
+
+
+@app.route('/roundup')
+@login_required
+def roundup_page():
+    user = current_user()
+    regions_json = {code: info['label'] for code, info in REGIONS.items()}
+    history_id = request.args.get('id', type=int)
+    initial_roundup_json = None
+    roundup_title = None
+    initial_image = None
+    if history_id:
+        with get_db() as db:
+            row = db.execute(
+                f"SELECT * FROM article_history WHERE id = {sql_param()} AND user_id = {sql_param()}",
+                (history_id, user["id"])
+            ).fetchone()
+            if row:
+                d = history_row_to_dict(row)
+                initial_roundup_json = d
+                roundup_title = d.get('title')
+                initial_image = d.get('image_url')
+
+    user_reg = get_user_region(user)
+    return render_template(
+        'roundup.html',
+        user=user,
+        regions=regions_json,
+        roundup_title=roundup_title,
+        initial_image=initial_image,
+        initial_roundup_json=initial_roundup_json,
+        default_region=user_reg,
+    )
+
+
+@app.route('/roundup/<int:history_id>')
+@login_required
+def roundup_by_id(history_id):
+    user = current_user()
+    regions_json = {code: info['label'] for code, info in REGIONS.items()}
+    initial_roundup_json = None
+    roundup_title = None
+    initial_image = None
+    with get_db() as db:
+        row = db.execute(
+            f"SELECT * FROM article_history WHERE id = {sql_param()} AND user_id = {sql_param()}",
+            (history_id, user["id"])
+        ).fetchone()
+        if row:
+            d = history_row_to_dict(row)
+            initial_roundup_json = d
+            roundup_title = d.get('title')
+            initial_image = d.get('image_url')
+
+    user_reg = get_user_region(user)
+    return render_template(
+        'roundup.html',
+        user=user,
+        regions=regions_json,
+        roundup_title=roundup_title,
+        initial_image=initial_image,
+        initial_roundup_json=initial_roundup_json,
+        default_region=user_reg,
+    )
+
+
+@app.route('/history')
+@login_required
+def history_page():
+    user = current_user()
+    regions_json = {code: info['label'] for code, info in REGIONS.items()}
+    with get_db() as db:
+        rows = db.execute(
+            f"""
+            SELECT id, title, article_text, image_url, source_count, sources_json, created_at
+            FROM article_history
+            WHERE user_id = {sql_param()}
+            ORDER BY created_at DESC, id DESC
+            LIMIT 100
+            """,
+            (user["id"],),
+        ).fetchall()
+        history_items = [history_row_to_dict(row) for row in rows]
+
+    user_reg = get_user_region(user)
+    return render_template(
+        'history.html',
+        user=user,
+        regions=regions_json,
+        history_items=history_items,
+        history_count=len(history_items),
+        default_region=user_reg,
+    )
+
+
+@app.route('/bookmarks')
+@login_required
+def bookmarks_page():
+    user = current_user()
+    regions_json = {code: info['label'] for code, info in REGIONS.items()}
+    with get_db() as db:
+        rows = db.execute(
+            f"""
+            SELECT id, title, article_text, image_url, source_count, sources_json, created_at
+            FROM bookmarks
+            WHERE user_id = {sql_param()}
+            ORDER BY created_at DESC, id DESC
+            LIMIT 100
+            """,
+            (user["id"],),
+        ).fetchall()
+        bookmark_items = [bookmark_row_to_dict(row) for row in rows]
+
+    user_reg = get_user_region(user)
+    return render_template(
+        'bookmarks.html',
+        user=user,
+        regions=regions_json,
+        bookmark_items=bookmark_items,
+        bookmarks_count=len(bookmark_items),
+        default_region=user_reg,
+    )
+
+
+@app.route('/settings')
+@login_required
+def settings():
+    user = current_user()
+    regions_json = {code: info['label'] for code, info in REGIONS.items()}
+    interests = get_user_interests(user["id"])
+    user_reg = get_user_region(user)
+    return render_template(
+        'settings.html',
+        user=user,
+        regions=regions_json,
+        interests=interests,
+        default_region=user_reg,
+    )
+
+
+@app.route('/api/interests', methods=['GET', 'POST'])
+@login_required
+def api_interests():
+    user = current_user()
+    if request.method == 'POST':
+        data = request.get_json(silent=True) or request.form
+        interest = (data.get('interest') or '').strip()
+        if not interest:
+            return jsonify({"error": "Interest cannot be empty"}), 400
+        saved = save_user_interest(user["id"], interest, source_type="manual")
+        return jsonify({"success": True, "interest": saved, "interests": get_user_interests(user["id"])})
+    return jsonify(get_user_interests(user["id"]))
+
+
+@app.route('/api/interests/<int:interest_id>', methods=['DELETE'])
+@login_required
+def api_interests_delete(interest_id):
+    user = current_user()
+    delete_user_interest(user["id"], interest_id=interest_id)
+    return jsonify({"success": True, "interests": get_user_interests(user["id"])})
+
+
+@app.route('/api/interests/remove', methods=['POST'])
+@login_required
+def api_interests_remove():
+    user = current_user()
+    data = request.get_json(silent=True) or request.form
+    interest_id = data.get('id')
+    interest_name = data.get('interest')
+    delete_user_interest(user["id"], interest_id=interest_id, interest_name=interest_name)
+    return jsonify({"success": True, "interests": get_user_interests(user["id"])})
+
+
+@app.route('/api/interests/clear', methods=['POST'])
+@login_required
+def api_interests_clear():
+    user = current_user()
+    clear_user_interests(user["id"])
+    return jsonify({"success": True, "interests": []})
+
+
+def generate_unique_username(base_name: str) -> str:
+    """Generate a unique username from base name (e.g. from Google name or email prefix)."""
+    clean = re.sub(r'[^A-Za-z0-9_.-]', '', base_name.strip())
+    if len(clean) < 3:
+        clean = f"user_{secrets.token_hex(3)}"
+    elif len(clean) > 28:
+        clean = clean[:28]
+
+    candidate = clean
+    suffix = 1
+    with get_db() as db:
+        while True:
+            if USE_POSTGRES:
+                existing = db.execute("SELECT id FROM users WHERE username = %s", (candidate,)).fetchone()
+            else:
+                existing = db.execute("SELECT id FROM users WHERE username = ?", (candidate,)).fetchone()
+            if not existing:
+                return candidate
+            candidate = f"{clean[:24]}_{suffix}"
+            suffix += 1
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -2066,17 +2866,23 @@ def login():
         return redirect(url_for('index'))
 
     if request.method == 'POST':
-        username = request.form.get('username', '').strip()
+        email = request.form.get('email', '').strip().lower()
         password = request.form.get('password', '')
 
         with get_db() as db:
-            user = db.execute(
-                f"SELECT id, username, password_hash FROM users WHERE username = {sql_param()}",
-                (username,),
-            ).fetchone()
+            if USE_POSTGRES:
+                user = db.execute(
+                    "SELECT id, username, email, password_hash FROM users WHERE LOWER(email) = LOWER(%s)",
+                    (email,),
+                ).fetchone()
+            else:
+                user = db.execute(
+                    "SELECT id, username, email, password_hash FROM users WHERE LOWER(email) = LOWER(?)",
+                    (email,),
+                ).fetchone()
 
-        if user is None or not check_password_hash(user['password_hash'], password):
-            flash('Invalid username or password.', 'error')
+        if user is None or not user['password_hash'] or not check_password_hash(user['password_hash'], password):
+            flash('Invalid email or password.', 'error')
         else:
             session.clear()
             session['user_id'] = user['id']
@@ -2092,43 +2898,208 @@ def register():
         return redirect(url_for('index'))
 
     if request.method == 'POST':
-        username = request.form.get('username', '').strip()
+        email = request.form.get('email', '').strip().lower()
         password = request.form.get('password', '')
         confirm_password = request.form.get('confirm_password', '')
 
-        if not re.fullmatch(r'[A-Za-z0-9_.-]{3,32}', username):
-            flash('Use 3-32 letters, numbers, dots, dashes, or underscores.', 'error')
+        if not email or not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', email):
+            flash('Please enter a valid email address.', 'error')
         elif len(password) < 8:
             flash('Password must be at least 8 characters.', 'error')
         elif password != confirm_password:
             flash('Passwords do not match.', 'error')
         else:
-            try:
-                with get_db() as db:
-                    password_hash = generate_password_hash(password)
-                    if USE_POSTGRES:
-                        cursor = db.execute(
-                            """
-                            INSERT INTO users (username, password_hash)
-                            VALUES (%s, %s)
-                            RETURNING id
-                            """,
-                            (username, password_hash),
-                        )
-                        user_id = cursor.fetchone()["id"]
-                    else:
-                        cursor = db.execute(
-                            "INSERT INTO users (username, password_hash) VALUES (?, ?)",
-                            (username, password_hash),
-                        )
-                        user_id = cursor.lastrowid
-                    session.clear()
-                    session['user_id'] = user_id
-                    return redirect(url_for('index'))
-            except UNIQUE_ERRORS:
-                flash('That username is already taken.', 'error')
+            # Check for existing email
+            with get_db() as db:
+                if USE_POSTGRES:
+                    existing_email = db.execute("SELECT id FROM users WHERE LOWER(email) = %s", (email,)).fetchone()
+                else:
+                    existing_email = db.execute("SELECT id FROM users WHERE LOWER(email) = ?", (email,)).fetchone()
+            if existing_email:
+                flash('That email is already registered.', 'error')
+            else:
+                username = generate_unique_username(email.split('@')[0])
+                try:
+                    with get_db() as db:
+                        password_hash = generate_password_hash(password)
+                        if USE_POSTGRES:
+                            cursor = db.execute(
+                                """
+                                INSERT INTO users (email, username, password_hash)
+                                VALUES (%s, %s, %s)
+                                RETURNING id
+                                """,
+                                (email, username, password_hash),
+                            )
+                            user_id = cursor.fetchone()["id"]
+                        else:
+                            cursor = db.execute(
+                                "INSERT INTO users (email, username, password_hash) VALUES (?, ?, ?)",
+                                (email, username, password_hash),
+                            )
+                            user_id = cursor.lastrowid
+                        session.clear()
+                        session['user_id'] = user_id
+                        return redirect(url_for('index'))
+                except UNIQUE_ERRORS:
+                    flash('That email is already registered.', 'error')
 
     return render_template('auth.html', mode='register')
+
+
+@app.route('/login/google')
+def login_google():
+    if current_user() is not None:
+        return redirect(url_for('index'))
+
+    # If in test mode with mock query param, redirect directly to test mock callback
+    if app.config.get("TESTING") and request.args.get("mock") == "1":
+        return redirect(url_for('google_callback', mock="1", code="mock_code", state="mock_state"))
+
+    client_id = app.config.get("GOOGLE_CLIENT_ID") or os.environ.get("GOOGLE_CLIENT_ID")
+    if not client_id:
+        if app.config.get("TESTING"):
+            return redirect(url_for('google_callback', mock="1", code="mock_code", state="mock_state"))
+        flash('Google Sign-In is not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env.', 'error')
+        return redirect(url_for('login'))
+
+    state = secrets.token_urlsafe(16)
+    session['oauth_state'] = state
+    redirect_uri = url_for('google_callback', _external=True)
+
+    params = {
+        'client_id': client_id,
+        'redirect_uri': redirect_uri,
+        'response_type': 'code',
+        'scope': 'openid email profile',
+        'state': state,
+        'access_type': 'online',
+        'prompt': 'select_account',
+    }
+    google_auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urllib.parse.urlencode(params)}"
+    return redirect(google_auth_url)
+
+
+@app.route('/login/google/callback')
+def google_callback():
+    error = request.args.get('error')
+    if error:
+        flash(f'Google Sign-In was cancelled or failed ({error}).', 'error')
+        return redirect(url_for('login'))
+
+    is_mock = request.args.get('mock') == '1' and app.config.get('TESTING')
+
+    if is_mock:
+        google_info = {
+            'sub': 'google_mock_user_123',
+            'email': 'tester@gmail.com',
+            'name': 'Google Tester',
+            'picture': 'https://picsum.photos/100/100',
+        }
+    else:
+        state = request.args.get('state')
+        saved_state = session.pop('oauth_state', None)
+        if not state or state != saved_state:
+            flash('Invalid OAuth state. Please try logging in again.', 'error')
+            return redirect(url_for('login'))
+
+        code = request.args.get('code')
+        if not code:
+            flash('Missing authorization code from Google.', 'error')
+            return redirect(url_for('login'))
+
+        client_id = app.config.get("GOOGLE_CLIENT_ID") or os.environ.get("GOOGLE_CLIENT_ID")
+        client_secret = app.config.get("GOOGLE_CLIENT_SECRET") or os.environ.get("GOOGLE_CLIENT_SECRET")
+        redirect_uri = url_for('google_callback', _external=True)
+
+        try:
+            token_resp = requests.post(
+                'https://oauth2.googleapis.com/token',
+                data={
+                    'client_id': client_id,
+                    'client_secret': client_secret,
+                    'code': code,
+                    'grant_type': 'authorization_code',
+                    'redirect_uri': redirect_uri,
+                },
+                timeout=10,
+            )
+            token_data = token_resp.json()
+            access_token = token_data.get('access_token')
+            if not access_token:
+                flash('Failed to obtain access token from Google.', 'error')
+                return redirect(url_for('login'))
+
+            userinfo_resp = requests.get(
+                'https://www.googleapis.com/oauth2/v3/userinfo',
+                headers={'Authorization': f'Bearer {access_token}'},
+                timeout=10,
+            )
+            google_info = userinfo_resp.json()
+        except requests.RequestException as e:
+            flash(f'Network error connecting to Google: {e}', 'error')
+            return redirect(url_for('login'))
+
+    google_id = str(google_info.get('sub', '')).strip()
+    google_email = (google_info.get('email') or '').strip().lower()
+    google_name = (google_info.get('name') or '').strip()
+    avatar_url = (google_info.get('picture') or '').strip()
+
+    if not google_id or not google_email:
+        flash('Could not retrieve Google profile information.', 'error')
+        return redirect(url_for('login'))
+
+    with get_db() as db:
+        # 1. Try finding by google_id
+        if USE_POSTGRES:
+            user = db.execute("SELECT id, username, email FROM users WHERE google_id = %s", (google_id,)).fetchone()
+        else:
+            user = db.execute("SELECT id, username, email FROM users WHERE google_id = ?", (google_id,)).fetchone()
+
+        if user:
+            user_id = user['id']
+            if avatar_url:
+                if USE_POSTGRES:
+                    db.execute("UPDATE users SET avatar_url = %s WHERE id = %s AND (avatar_url IS NULL OR avatar_url = '')", (avatar_url, user_id))
+                else:
+                    db.execute("UPDATE users SET avatar_url = ? WHERE id = ? AND (avatar_url IS NULL OR avatar_url = '')", (avatar_url, user_id))
+        else:
+            # 2. Try finding by email to link account
+            if USE_POSTGRES:
+                user_by_email = db.execute("SELECT id FROM users WHERE LOWER(email) = %s", (google_email,)).fetchone()
+            else:
+                user_by_email = db.execute("SELECT id FROM users WHERE LOWER(email) = ?", (google_email,)).fetchone()
+
+            if user_by_email:
+                user_id = user_by_email['id']
+                if USE_POSTGRES:
+                    db.execute("UPDATE users SET google_id = %s, avatar_url = COALESCE(avatar_url, %s) WHERE id = %s", (google_id, avatar_url, user_id))
+                else:
+                    db.execute("UPDATE users SET google_id = ?, avatar_url = COALESCE(avatar_url, ?) WHERE id = ?", (google_id, avatar_url, user_id))
+            else:
+                # 3. Create new user
+                base_name = google_name.replace(' ', '_') if google_name else google_email.split('@')[0]
+                username = generate_unique_username(base_name)
+                if USE_POSTGRES:
+                    cursor = db.execute(
+                        """
+                        INSERT INTO users (username, email, google_id, avatar_url, password_hash)
+                        VALUES (%s, %s, %s, %s, %s)
+                        RETURNING id
+                        """,
+                        (username, google_email, google_id, avatar_url, ""),
+                    )
+                    user_id = cursor.fetchone()["id"]
+                else:
+                    cursor = db.execute(
+                        "INSERT INTO users (username, email, google_id, avatar_url, password_hash) VALUES (?, ?, ?, ?, ?)",
+                        (username, google_email, google_id, avatar_url, ""),
+                    )
+                    user_id = cursor.lastrowid
+
+    session.clear()
+    session['user_id'] = user_id
+    return redirect(url_for('index'))
 
 
 @app.route('/logout', methods=['POST'])

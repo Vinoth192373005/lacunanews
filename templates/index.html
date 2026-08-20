@@ -7,7 +7,20 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Parisienne&family=Pinyon+Script&display=swap" rel="stylesheet">
+    <link href="https://fonts.cdnfonts.com/css/glacial-indifference-2" rel="stylesheet">
     <style>
+        @font-face {
+            font-family: 'Glacial Indifference';
+            font-style: normal;
+            font-weight: 400;
+            src: local('Glacial Indifference'), url('https://fonts.cdnfonts.com/s/31913/GlacialIndifference-Regular.woff') format('woff');
+        }
+        @font-face {
+            font-family: 'Glacial Indifference';
+            font-style: normal;
+            font-weight: 700;
+            src: local('Glacial Indifference'), url('https://fonts.cdnfonts.com/s/31913/GlacialIndifference-Bold.woff') format('woff');
+        }
         :root {
             --offwhite:#f4f1e8;
             --bg:#e9e7e7; --panel:#cfd8ff; --fg:#050505; --gray:#5f5f63;
@@ -42,88 +55,114 @@
             --shadow:rgba(0,0,0,0.25);
         }
         * { box-sizing:border-box; margin:0; padding:0; }
-        body { font-family:"Courier New",Courier,monospace; background:var(--bg); color:var(--fg); line-height:1.5; }
+        body { font-family:"Glacial Indifference", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif; background:var(--bg); color:var(--fg); line-height:1.5; }
 
-        /* ── TOPBAR ── */
+        /* ── TOPBAR / MASTHEAD ── */
         .topbar {
             background: var(--topbar-bg);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
             color: var(--fg);
-            padding: 0 20px;
-            display: flex; align-items: center; gap: 16px;
+            padding: 16px 24px 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             position: sticky; top: 0; z-index: 200;
             border-bottom: 1px solid var(--border);
-            height: 52px;
+            gap: 12px;
+        }
+        .topbar-header-row {
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+        }
+        .topbar-left-placeholder {
+            visibility: hidden;
+            width: 60px;
         }
         .topbar-wordmark {
-            flex-shrink: 0;
             font-family: "Pinyon Script", "Parisienne", cursive;
-            font-size: 2.15rem;
+            font-size: 3.2rem;
             font-weight: 400;
-            letter-spacing: 0.04em;
+            letter-spacing: 0.02em;
             line-height: 1;
             color: var(--fg);
+            text-decoration: none;
             white-space: nowrap;
             user-select: none;
+            text-align: center;
+            justify-self: center;
+            transition: transform 0.2s ease;
+        }
+        .topbar-wordmark:hover {
+            transform: scale(1.02);
+        }
+        .topbar-right {
+            justify-self: end;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        /* ── CATEGORY PILLS ── */
-        .category-pills {
-            position: absolute;
-            left: 50%;
-            transform: translateX(-50%);
-            max-width: calc(100% - 560px);
-            display: flex; gap: 6px; justify-content: center;
-            overflow-x: auto; overflow-y: hidden;
-            align-items: center; padding: 0 8px;
-            scrollbar-width: none;
+        /* ── SEARCH ROW (CENTERED) ── */
+        .search-row {
+            width: 100%;
+            display: flex;
+            justify-content: center;
         }
-        .category-pills::-webkit-scrollbar { display: none; }
-        .pill-item {
-            font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px;
-            padding: 5px 14px; cursor: pointer; color: var(--gray);
-            background: transparent; border: 1px solid transparent;
-            border-radius: 20px; transition: all 0.18s; white-space: nowrap;
-            flex-shrink: 0; font-family: inherit;
-        }
-        .pill-item:hover { color: var(--fg); background: var(--light); border-color: var(--border); }
-        .pill-item.active { color: var(--bg); background: var(--fg); border-color: var(--fg); font-weight: bold; }
-
-        /* ── RIGHT SIDE ── */
-        .topbar-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; margin-left: auto; }
-        @media(max-width:960px) {
-            .category-pills { position: static; transform: none; flex: 1; justify-content: flex-start; max-width: none; }
-            .user-menu span { display: none; }
-        }
-        @media(max-width:760px) { .topbar-wordmark { display:none; } }
-
         .search-container {
             display: flex; align-items: center;
             background: var(--light); border-radius: 24px;
-            border: 1px solid var(--border); overflow: hidden; width: 200px;
+            border: 1px solid var(--border); overflow: hidden;
+            width: min(460px, 92vw);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .search-container:focus-within {
+            border-color: var(--fg);
+            box-shadow: 0 0 0 1px var(--fg);
         }
         .search-container input {
-            flex: 1; padding: 6px 14px; font-size: 0.82rem; font-family: inherit;
+            flex: 1; padding: 8px 18px; font-size: 0.88rem; font-family: inherit;
             border: none; background: transparent; color: var(--fg); outline: none; min-width: 0;
         }
         .search-container input::placeholder { color: var(--gray); }
         .search-container button {
-            padding: 6px 14px; font-size: 1rem; font-family: inherit;
+            padding: 8px 18px; font-size: 1.1rem; font-family: inherit;
             background: transparent; color: var(--gray); border: none; cursor: pointer; transition: color 0.2s;
         }
         .search-container button:hover { color: var(--fg); }
 
-        .side-menu-toggle-btn {
+        /* ── CATEGORY PILLS (BELOW LOGO & SEARCH) ── */
+        .category-pills {
+            display: flex; gap: 8px; justify-content: center;
+            flex-wrap: wrap;
+            overflow-x: auto;
+            align-items: center; padding: 2px 0 0;
+            scrollbar-width: none;
+            width: 100%;
+        }
+        .category-pills::-webkit-scrollbar { display: none; }
+        .pill-item {
+            font-size: 0.76rem; text-transform: uppercase; letter-spacing: 1px;
+            padding: 5px 16px; cursor: pointer; color: var(--gray);
+            background: var(--light); border: 1px solid var(--border);
+            border-radius: 20px; transition: all 0.18s; white-space: nowrap;
+            flex-shrink: 0; font-family: inherit; font-weight: 600;
+        }
+        .pill-item:hover { color: var(--fg); background: var(--bg); border-color: var(--fg); transform: translateY(-1px); }
+        .pill-item.active { color: var(--bg); background: var(--fg); border-color: var(--fg); font-weight: bold; }
+
+        .settings-nav-btn {
             display: flex; align-items: center; gap: 9px;
             padding: 5px 12px 5px 6px;
             background: var(--light); border: 1px solid var(--border);
             border-radius: 24px; cursor: pointer;
             color: var(--fg); font-family: inherit;
+            text-decoration: none;
             transition: all 0.18s ease; flex-shrink: 0;
         }
-        .side-menu-toggle-btn:hover { border-color: var(--fg); background: var(--bg); }
-        .side-menu-toggle-btn.active { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+        .settings-nav-btn:hover { border-color: var(--fg); background: var(--bg); }
         .user-chip { display: flex; align-items: center; gap: 7px; }
         .user-chip-avatar {
             width: 24px; height: 24px; border-radius: 50%;
@@ -131,193 +170,13 @@
             display: flex; align-items: center; justify-content: center;
             font-size: 0.68rem; font-weight: bold;
         }
-        .side-menu-toggle-btn.active .user-chip-avatar { background: var(--bg); color: var(--fg); }
         .user-chip-name { font-size: 0.72rem; font-weight: bold; letter-spacing: 0.5px; }
-        @media(max-width:600px) { .user-chip-name { display: none; } }
-        .hamburger-icon { display: flex; flex-direction: column; gap: 3px; width: 14px; }
-        .hamburger-icon span { display: block; height: 2px; background: currentColor; border-radius: 1px; }
-
-        /* ── SIDE MENU POPUP DRAWER ── */
-        .side-menu-backdrop {
-            display: none; position: fixed; inset: 0; z-index: 550;
-            background: rgba(0, 0, 0, 0.55);
-            backdrop-filter: blur(4px);
-            -webkit-backdrop-filter: blur(4px);
-            opacity: 0; transition: opacity 0.25s ease;
+        @media(max-width:600px) {
+            .topbar { padding: 12px 14px 10px; gap: 10px; }
+            .topbar-wordmark { font-size: 2.5rem; }
+            .user-chip-name { display: none; }
+            .pill-item { font-size: 0.7rem; padding: 4px 12px; }
         }
-        /* ── SIDE MENU POPUP DRAWER ── */
-        .side-menu-backdrop {
-            display: none; position: fixed; inset: 0; z-index: 550;
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(4px);
-            -webkit-backdrop-filter: blur(4px);
-            opacity: 0; transition: opacity 0.25s ease;
-        }
-        .side-menu-backdrop.open { display: block; opacity: 1; }
-
-        .side-menu-drawer {
-            position: fixed; top: 0; right: 0;
-            width: min(420px, 94vw); height: 100vh; height: 100dvh;
-            background: var(--bg); border-left: 1px solid var(--border);
-            box-shadow: -10px 0 40px var(--shadow); z-index: 551;
-            display: flex; flex-direction: column;
-            transform: translateX(100%);
-            transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
-            color: var(--fg); overflow: hidden;
-        }
-        .side-menu-drawer.open { transform: translateX(0); }
-
-        .side-menu-header {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 16px 20px; border-bottom: 1px solid var(--border);
-            background: var(--topbar-bg); backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px); flex-shrink: 0;
-        }
-        .side-menu-title {
-            font-size: 0.82rem; font-weight: 800; letter-spacing: 1.5px;
-            text-transform: uppercase; color: var(--fg);
-            display: flex; align-items: center; gap: 8px;
-        }
-        .side-menu-close {
-            width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 50%;
-            background: var(--light); color: var(--fg); font-size: 1rem;
-            display: flex; align-items: center; justify-content: center;
-            cursor: pointer; transition: all 0.18s ease; flex-shrink: 0;
-        }
-        .side-menu-close:hover {
-            background: var(--fg); color: var(--bg); border-color: var(--fg);
-            transform: rotate(90deg);
-        }
-
-        .side-menu-body {
-            flex: 1; overflow-y: auto; padding: 18px 20px;
-            display: flex; flex-direction: column; gap: 16px;
-            scrollbar-width: thin;
-        }
-
-        .side-card-section {
-            border: 1px solid var(--border); border-radius: var(--radius);
-            background: var(--light); padding: 14px 16px;
-            display: flex; flex-direction: column; gap: 12px;
-        }
-        .side-card-header {
-            display: flex; align-items: center; justify-content: space-between;
-            font-size: 0.72rem; font-weight: 800; text-transform: uppercase;
-            letter-spacing: 1.2px; color: var(--fg);
-        }
-        .side-card-header-left { display: flex; align-items: center; gap: 7px; }
-
-        /* Account Card */
-        .side-account-profile {
-            display: flex; align-items: center; gap: 12px;
-        }
-        .side-avatar {
-            width: 44px; height: 44px; border-radius: 50%;
-            background: var(--fg); color: var(--bg);
-            display: flex; align-items: center; justify-content: center;
-            font-weight: 700; font-size: 1.05rem; letter-spacing: 0.5px;
-            border: 2px solid var(--border); flex-shrink: 0;
-        }
-        .side-account-info { flex: 1; min-width: 0; }
-        .side-username {
-            font-weight: bold; font-size: 0.95rem; color: var(--fg);
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
-        .side-account-meta { font-size: 0.68rem; color: var(--gray); margin-top: 2px; }
-        .side-account-badge {
-            display: inline-flex; align-items: center; gap: 5px;
-            font-size: 0.6rem; color: #10b981; font-weight: bold;
-            text-transform: uppercase; letter-spacing: 0.8px; margin-top: 3px;
-        }
-        .pulse-dot {
-            width: 6px; height: 6px; background: #10b981; border-radius: 50%;
-            box-shadow: 0 0 0 rgba(16, 185, 129, 0.4); animation: pulse-ring 2s infinite;
-        }
-        @keyframes pulse-ring {
-            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-            70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-        }
-        .side-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .side-stat-box {
-            padding: 8px 10px; background: var(--bg);
-            border: 1px solid var(--border); border-radius: 4px; text-align: center;
-        }
-        .side-stat-num { font-size: 1.15rem; font-weight: 700; color: var(--fg); font-family: var(--headline-font); }
-        .side-stat-lbl { font-size: 0.58rem; color: var(--gray); text-transform: uppercase; letter-spacing: 0.8px; margin-top: 2px; }
-        .side-logout-btn {
-            width: 100%; padding: 8px 12px; background: var(--bg);
-            border: 1px solid var(--border); color: var(--fg); border-radius: 4px;
-            font-family: inherit; font-size: 0.7rem; text-transform: uppercase;
-            letter-spacing: 1px; font-weight: bold; cursor: pointer; transition: all 0.15s ease;
-        }
-        .side-logout-btn:hover { background: #e11d48; color: #ffffff; border-color: #e11d48; }
-
-        /* Theming Grid */
-        .theme-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
-        .theme-option {
-            padding: 8px 10px; font-size: 0.72rem; font-family: inherit;
-            border: 1px solid var(--border); border-radius: 4px; background: var(--bg);
-            color: var(--fg); cursor: pointer; transition: all 0.15s; text-align: left;
-            display: flex; align-items: center; gap: 8px;
-        }
-        .theme-option:hover { border-color: var(--fg); }
-        .theme-option.active { color: var(--bg); background: var(--fg); border-color: var(--fg); font-weight: bold; }
-        .theme-swatch {
-            width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0;
-            background: linear-gradient(135deg, var(--swatch-bg) 0 50%, var(--swatch-fg) 50% 100%);
-            border: 1px solid var(--swatch-fg);
-        }
-
-        /* Region Grid */
-        .region-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; max-height: 180px; overflow-y: auto; }
-        .region-option {
-            padding: 7px 10px; font-size: 0.72rem; font-family: inherit;
-            border: 1px solid var(--border); border-radius: 4px; background: var(--bg);
-            color: var(--gray); cursor: pointer; transition: all 0.15s; text-align: left;
-            display: flex; align-items: center; gap: 6px;
-        }
-        .region-option:hover { color: var(--fg); border-color: var(--fg); }
-        .region-option.active { color: var(--bg); background: var(--fg); border-color: var(--fg); font-weight: bold; }
-        .region-code-badge {
-            font-size: 0.62rem; font-weight: 800; letter-spacing: 0.8px;
-            padding: 2px 5px; border-radius: 3px; background: var(--border);
-            color: var(--fg); flex-shrink: 0; line-height: 1;
-        }
-        .region-option.active .region-code-badge {
-            background: var(--bg); color: var(--fg);
-        }
-
-        /* History List */
-        .side-history-count { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--gray); }
-        .side-clear-btn {
-            font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.8px;
-            color: var(--gray); background: var(--bg); border: 1px solid var(--border);
-            border-radius: 3px; padding: 2px 7px; cursor: pointer; font-family: inherit; transition: all 0.15s;
-        }
-        .side-clear-btn:hover { color: #e11d48; border-color: #e11d48; }
-        .side-history-list { display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto; padding-right: 2px; }
-        .side-history-card {
-            display: flex; align-items: center; gap: 10px; padding: 8px 10px;
-            background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
-            cursor: pointer; transition: all 0.15s ease; text-align: left;
-        }
-        .side-history-card:hover { border-color: var(--fg); transform: translateX(-2px); }
-        .side-history-thumb {
-            width: 44px; height: 44px; border-radius: 3px; object-fit: cover;
-            flex-shrink: 0; border: 1px solid var(--border); background: var(--light);
-        }
-        .side-history-details { flex: 1; min-width: 0; }
-        .side-history-title {
-            font-size: 0.76rem; font-weight: 700; font-family: var(--headline-font);
-            color: var(--fg); line-height: 1.25; display: -webkit-box;
-            -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-        }
-        .side-history-meta {
-            font-size: 0.58rem; color: var(--gray); margin-top: 3px;
-            display: flex; align-items: center; gap: 6px;
-        }
-        .side-empty-history { padding: 18px 10px; text-align: center; color: var(--gray); font-size: 0.72rem; line-height: 1.4; }
 
         /* ── CONTENT ── */
         .content { width:min(1480px, calc(100% - 56px)); margin:0 auto; padding:0 0 60px; }
@@ -378,7 +237,7 @@
         .hero-lead-attr,
         .hero-side-attr {
             font-size: 0.58rem; text-transform: uppercase; letter-spacing: 1.5px;
-            color: var(--gray); font-family: "Courier New", Courier, monospace;
+            color: var(--gray); font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
         }
         .hero-lead-title {
             font-size: clamp(2rem, 3.4vw, 3.35rem);
@@ -649,181 +508,52 @@
         }
         .reader-close:hover { color: var(--fg); }
         .reader-hero {
-            width: 100%; max-height: 260px; object-fit: cover;
-            object-position: center top; display: block; flex-shrink: 0;
-            border-bottom: 1px solid var(--border);
-        }
-        #reader-inner {
-            flex: 1; min-height: 0; overflow-y: auto;
-            display: flex; flex-direction: column;
-        }
-        .reader-body { padding: 32px 40px 40px; }
-        .reader-headline {
-            font-family: var(--headline-font);
-            font-size: 1.65rem; font-weight: 700; line-height: 1.12;
-            color: var(--fg); margin-bottom: 16px;
-        }
-        .reader-meta {
-            font-size: 0.62rem; text-transform: uppercase; letter-spacing: 1.5px;
-            color: var(--gray); margin-bottom: 26px;
-            display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-        }
-        .reader-article { font-size: 1.05rem; line-height: 1.85; color: var(--fg); }
-        .reader-article p { margin-bottom: 1.3em; }
-        .reader-divider { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
-        .reader-sources-label {
-            font-size: 0.6rem; text-transform: uppercase; letter-spacing: 2px;
-            color: var(--gray); margin-bottom: 10px;
-        }
-        .reader-source-chip {
-            display: inline-flex; align-items: center; gap: 5px;
-            font-size: 0.72rem; color: var(--fg); text-decoration: none;
-            border: 1px solid var(--border); padding: 4px 10px;
-            margin: 4px 4px 0 0; transition: background 0.15s;
-        }
-        .reader-source-chip:hover { background: var(--light); }
-        .reader-loading { padding: 52px 0; text-align: center; font-size: 0.82rem; color: var(--gray); }
-        @media(max-width:600px) {
-            .reader-body { padding: 22px 18px 32px; }
-            .reader-headline { font-size: 1.2rem; }
-        }
-
     </style>
 </head>
 <body>
 
-    <div class="reader-backdrop" id="reader-backdrop" onclick="closeReader()"></div>
-    <div class="reader-modal" id="reader-modal" style="display:none;">
-        <div class="reader-topbar">
-            <span class="reader-label">// ne roundup</span>
-            <button class="reader-close" onclick="closeReader()">✕</button>
-        </div>
-        <div id="reader-inner"></div>
-    </div>
-
-    <!-- ── POP-UP SIDE MENU BAR (DRAWER) ── -->
-    <div class="side-menu-backdrop" id="side-menu-backdrop" onclick="closeSideMenu()"></div>
-    <aside class="side-menu-drawer" id="side-menu-drawer" aria-label="Side menu" role="dialog" aria-modal="true">
-        <div class="side-menu-header">
-            <div class="side-menu-title">
-                Settings & Account
-            </div>
-            <button class="side-menu-close" onclick="closeSideMenu()" aria-label="Close menu" title="Close">✕</button>
-        </div>
-
-        <div class="side-menu-body">
-            <!-- Account Details Card -->
-            <div class="side-card-section" id="sec-account">
-                <div class="side-card-header">
-                    <span class="side-card-header-left">Account</span>
-                </div>
-                <div class="side-account-profile">
-                    <div class="side-avatar">{{ (user['username'] or 'U')[:2]|upper }}</div>
-                    <div class="side-account-info">
-                        <div class="side-username">{{ user['username'] }}</div>
-                        <div class="side-account-meta" id="account-meta-date">Member</div>
-                        <div class="side-account-badge"><span class="pulse-dot"></span> Active Session</div>
-                    </div>
-                </div>
-                <div class="side-stats-grid">
-                    <div class="side-stat-box">
-                        <div class="side-stat-num" id="stat-read-count">0</div>
-                        <div class="side-stat-lbl">Roundups Read</div>
-                    </div>
-                    <div class="side-stat-box">
-                        <div class="side-stat-num" id="stat-region-code">US</div>
-                        <div class="side-stat-lbl">Feed Region</div>
-                    </div>
-                </div>
-                <form class="side-logout-form" method="post" action="{{ url_for('logout') }}">
-                    <button class="side-logout-btn" type="submit">Log Out</button>
-                </form>
-            </div>
-
-            <!-- Reading History Card -->
-            <div class="side-card-section" id="sec-history">
-                <div class="side-card-header">
-                    <span class="side-card-header-left">Reading History</span>
-                    <button class="side-clear-btn" id="side-clear-history-btn" type="button" onclick="clearReadingHistory()">Clear</button>
-                </div>
-                <div class="side-history-list" id="side-history-list">
-                    <div class="side-empty-history">Loading history...</div>
-                </div>
-            </div>
-
-            <!-- Theming & Appearance Card -->
-            <div class="side-card-section" id="sec-theming">
-                <div class="side-card-header">
-                    <span class="side-card-header-left">Theme</span>
-                </div>
-                <div class="theme-grid" id="side-theme-grid">
-                    <button class="theme-option" type="button" data-theme-option="default">
-                        <span class="theme-swatch" style="--swatch-bg:#e9e7e7; --swatch-fg:#050505;"></span>Light
-                    </button>
-                    <button class="theme-option" type="button" data-theme-option="pitch-black">
-                        <span class="theme-swatch" style="--swatch-bg:#000; --swatch-fg:#f4f1e8;"></span>Dark
-                    </button>
-                    <button class="theme-option" type="button" data-theme-option="palette-one">
-                        <span class="theme-swatch" style="--swatch-bg:#FFEBAF; --swatch-fg:#79b4c9;"></span>Blue
-                    </button>
-                    <button class="theme-option" type="button" data-theme-option="palette-two">
-                        <span class="theme-swatch" style="--swatch-bg:#FFEBAF; --swatch-fg:#EF5D64;"></span>Red
-                    </button>
-                    <button class="theme-option" type="button" data-theme-option="palette-three">
-                        <span class="theme-swatch" style="--swatch-bg:#A37B47; --swatch-fg:#DBC88A;"></span>Gold
-                    </button>
-                </div>
-            </div>
-
-            <!-- Region Settings Card -->
-            <div class="side-card-section" id="sec-region">
-                <div class="side-card-header">
-                    <span class="side-card-header-left">Region</span>
-                </div>
-                <div class="region-grid" id="side-region-grid"></div>
+    <!-- ── TOPBAR / MASTHEAD ── -->
+    <header class="topbar" data-testid="topbar">
+        <div class="topbar-header-row">
+            <div class="topbar-left-placeholder"></div>
+            <a href="/" class="topbar-wordmark" data-testid="topbar-wordmark">Lacuna</a>
+            <div class="topbar-right">
+                <a class="settings-nav-btn" id="settings-nav-btn" data-testid="settings-nav-btn" href="/settings" title="Settings" aria-label="Settings">
+                    <span class="user-chip">
+                        <span class="user-chip-avatar" data-testid="user-chip-avatar">{{ (user['username'] or 'U')[:1]|upper }}</span>
+                        <span class="user-chip-name" data-testid="user-chip-name">{{ user['username'] }}</span>
+                    </span>
+                </a>
             </div>
         </div>
-    </aside>
 
-    <!-- ── TOPBAR ── -->
-    <header class="topbar">
-        <div class="topbar-wordmark">Lacuna</div>
-        <div class="category-pills" id="category-pills">
-            <div class="pill-item active" data-query="__home__">Home</div>
-            <div class="pill-item" data-query="business">Business</div>
-            <div class="pill-item" data-query="technology">Technology</div>
-            <div class="pill-item" data-query="sports">Sport</div>
-            <div class="pill-item" data-query="health">Health</div>
-            <div class="pill-item" data-query="culture">Culture</div>
-        </div>
-        <div class="topbar-right">
-            <div class="search-container">
-                <input type="text" id="search-input" placeholder="Search...">
-                <button onclick="triggerSearch()">→</button>
+        <div class="search-row">
+            <div class="search-container" data-testid="search-container">
+                <input type="text" id="search-input" data-testid="search-input">
+                <button id="search-btn" data-testid="search-btn" onclick="triggerSearch()" aria-label="Search">→</button>
             </div>
-            <button class="side-menu-toggle-btn" id="side-menu-toggle-btn" title="Open Menu" onclick="openSideMenu()" aria-label="Open menu">
-                <span class="user-chip">
-                    <span class="user-chip-avatar">{{ (user['username'] or 'U')[:1]|upper }}</span>
-                    <span class="user-chip-name">{{ user['username'] }}</span>
-                </span>
-                <span class="hamburger-icon">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </span>
-            </button>
+        </div>
+
+        <div class="category-pills" id="category-pills" data-testid="category-pills">
+            <div class="pill-item active" data-query="__home__" data-testid="pill-home">Home</div>
+            <div class="pill-item" data-query="business" data-testid="pill-business">Business</div>
+            <div class="pill-item" data-query="technology" data-testid="pill-technology">Technology</div>
+            <div class="pill-item" data-query="sports" data-testid="pill-sports">Sport</div>
+            <div class="pill-item" data-query="health" data-testid="pill-health">Health</div>
+            <div class="pill-item" data-query="culture" data-testid="pill-culture">Culture</div>
         </div>
     </header>
 
-    <div class="content">
-        <div id="story-feed">
-            <div class="status blink">Loading...</div>
+    <div class="content" data-testid="main-content">
+        <div id="story-feed" data-testid="story-feed">
+            <div class="status blink" data-testid="feed-status">Loading...</div>
         </div>
     </div>
 
     <script>
         window.REGIONS = {{ regions|tojson }};
         window.CURRENT_USER = {{ user['username']|tojson if user else 'null' }};
+        window.USER_REGION = {{ (default_region or 'US')|tojson }};
     </script>
     <script src="{{ url_for('static', filename='app.js') }}"></script>
 

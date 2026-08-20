@@ -1,0 +1,44 @@
+{
+  "validUsers": [
+    {
+      "username": "qa_enterprise_admin",
+      "password": "SecurePassword123!",
+      "role": "admin",
+      "region": "US"
+    },
+    {
+      "username": "qa_test_reader",
+      "password": "Password789!",
+      "role": "user",
+      "region": "UK"
+    },
+    {
+      "username": "qa_mobile_user",
+      "password": "MobilePass2026!",
+      "role": "user",
+      "region": "IN"
+    }
+  ],
+  "invalidUsers": [
+    {
+      "username": "",
+      "password": "Password123!",
+      "expectedError": "Username is required"
+    },
+    {
+      "username": "qa_user",
+      "password": "",
+      "expectedError": "Password is required"
+    },
+    {
+      "username": "non_existent_user_999",
+      "password": "WrongPassword123!",
+      "expectedError": "Invalid username or password"
+    },
+    {
+      "username": "usr",
+      "password": "123",
+      "expectedError": "Password too short"
+    }
+  ]
+}
