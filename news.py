@@ -677,25 +677,33 @@ HEADERS = {
     )
 }
 
+import threading
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+
 _domain_image_cache = {}
 _fallback_image_cache = {}
 _wiki_image_cache = {}
 
 HOME_QUERY = "__home__"
 
-
+_embedder_lock = threading.Lock()
 _embedder = None
 def get_embedder():
     global _embedder
     if _embedder is None:
-        try:
-            from sentence_transformers import SentenceTransformer
-            print("  Loading MiniLM model...")
-            _embedder = SentenceTransformer('all-MiniLM-L6-v2')
-            print("  MiniLM ready.")
-        except (ImportError, OSError, RuntimeError, ValueError) as e:
-            print(f"  MiniLM unavailable ({e}), will fall back to TF-IDF.")
-            _embedder = False
+        with _embedder_lock:
+            if _embedder is None:
+                try:
+                    from sentence_transformers import SentenceTransformer
+                    print("  Loading MiniLM model...")
+                    _embedder = SentenceTransformer('all-MiniLM-L6-v2')
+                    print("  MiniLM ready.")
+                except (ImportError, OSError, RuntimeError, ValueError, Exception) as e:
+                    print(f"  MiniLM unavailable ({e}), will fall back to TF-IDF.")
+                    _embedder = False
     return _embedder if _embedder else None
 
 
@@ -704,10 +712,11 @@ def embed(texts):
     if model is None:
         return None
     try:
-        vecs = model.encode(texts, batch_size=64, show_progress_bar=False,
-                            convert_to_numpy=True)
-        return normalize(vecs)
-    except (RuntimeError, ValueError) as e:
+        with _embedder_lock:
+            vecs = model.encode(texts, batch_size=64, show_progress_bar=False,
+                                convert_to_numpy=True)
+            return normalize(vecs)
+    except (RuntimeError, ValueError, Exception) as e:
         print(f"  embed() error: {e}")
         return None
 
