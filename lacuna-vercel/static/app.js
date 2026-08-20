@@ -1,22 +1,28 @@
 const REGIONS = window.REGIONS || {};
 const THEMES = new Set(['default', 'pitch-black', 'palette-one', 'palette-two', 'palette-three']);
 
-let currentRegion = localStorage.getItem('newsRegion') || 'US';
-let currentTheme  = localStorage.getItem('newsTheme') || 'default';
+let currentRegion = (localStorage.getItem('lacuna_region') || localStorage.getItem('newsRegion') || window.USER_REGION || 'US').toUpperCase();
+let currentTheme  = localStorage.getItem('lacuna_theme') || localStorage.getItem('newsTheme') || 'default';
 let currentQuery  = '__home__';
 let currentCategoryName = 'Home';
 
 function applyTheme(theme) {
     currentTheme = THEMES.has(theme) ? theme : 'default';
-    document.body.dataset.theme = currentTheme;
+    if (currentTheme === 'default') {
+        document.body.removeAttribute('data-theme');
+    } else {
+        document.body.setAttribute('data-theme', currentTheme);
+    }
     document.querySelectorAll('[data-theme-option]').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.themeOption === currentTheme);
     });
 }
 
 function setTheme(theme) {
-    localStorage.setItem('newsTheme', THEMES.has(theme) ? theme : 'default');
-    applyTheme(theme);
+    const t = THEMES.has(theme) ? theme : 'default';
+    localStorage.setItem('lacuna_theme', t);
+    localStorage.setItem('newsTheme', t);
+    applyTheme(t);
 }
 
 document.querySelectorAll('[data-theme-option]').forEach(btn => {
@@ -25,7 +31,6 @@ document.querySelectorAll('[data-theme-option]').forEach(btn => {
 
 function buildRegionGrid() {
     const grids = [
-        document.getElementById('side-region-grid'),
         document.getElementById('region-grid')
     ].filter(Boolean);
 
@@ -36,67 +41,27 @@ function buildRegionGrid() {
             btn.className = 'region-option' + (code === currentRegion ? ' active' : '');
             btn.type = 'button';
             btn.dataset.code = code;
+            btn.dataset.testid = 'region-option-' + code.toLowerCase();
             btn.innerHTML = `<span class="region-code-badge">${code}</span>${label}`;
             btn.addEventListener('click', () => selectRegion(code));
             grid.appendChild(btn);
         });
     });
-
-    const statReg = document.getElementById('stat-region-code');
-    if (statReg) statReg.textContent = currentRegion;
 }
 
 function selectRegion(code) {
     const changed = (code !== currentRegion);
-    currentRegion = code;
-    localStorage.setItem('newsRegion', code);
+    currentRegion = code.toUpperCase();
+    localStorage.setItem('newsRegion', currentRegion);
+    localStorage.setItem('lacuna_region', currentRegion.toLowerCase());
+    fetch('/api/region', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ region: currentRegion })
+    }).catch(() => {});
     buildRegionGrid();
-    closeSideMenu();
     if (changed) {
         loadQuery(currentQuery, currentCategoryName);
-    }
-}
-
-/* ── SIDE MENU DRAWER ── */
-function openSideMenu() {
-    const drawer = document.getElementById('side-menu-drawer');
-    const backdrop = document.getElementById('side-menu-backdrop');
-    const btn = document.getElementById('side-menu-toggle-btn');
-    if (drawer) drawer.classList.add('open');
-    if (backdrop) backdrop.classList.add('open');
-    if (btn) btn.classList.add('active');
-    document.body.style.overflow = 'hidden';
-    loadAccountDetails();
-    loadReadingHistory();
-}
-
-function closeSideMenu() {
-    const drawer = document.getElementById('side-menu-drawer');
-    const backdrop = document.getElementById('side-menu-backdrop');
-    const btn = document.getElementById('side-menu-toggle-btn');
-    if (drawer) drawer.classList.remove('open');
-    if (backdrop) backdrop.classList.remove('open');
-    if (btn) btn.classList.remove('active');
-
-    const readerModal = document.getElementById('reader-modal');
-    if (!readerModal || readerModal.style.display === 'none') {
-        document.body.style.overflow = '';
-    }
-}
-
-function toggleSideMenu() {
-    const drawer = document.getElementById('side-menu-drawer');
-    if (drawer && drawer.classList.contains('open')) {
-        closeSideMenu();
-    } else {
-        openSideMenu();
-    }
-}
-
-function toggleSideSection(sectionId) {
-    const item = document.getElementById(sectionId);
-    if (item) {
-        item.classList.toggle('open');
     }
 }
 
@@ -127,6 +92,14 @@ function loadAccountDetails() {
         .then(r => r.ok ? r.json() : null)
         .then(data => {
             if (!data) return;
+            if (data.username) {
+                const uEl = document.getElementById('side-account-username');
+                if (uEl) uEl.textContent = data.username;
+            }
+            if (typeof data.email !== 'undefined') {
+                const emailEl = document.getElementById('side-account-email');
+                if (emailEl) emailEl.textContent = data.email || '';
+            }
             if (data.created_at) {
                 const d = new Date(data.created_at);
                 const metaEl = document.getElementById('account-meta-date');
@@ -137,6 +110,17 @@ function loadAccountDetails() {
             if (typeof data.history_count !== 'undefined') {
                 const countEl = document.getElementById('stat-read-count');
                 if (countEl) countEl.textContent = data.history_count;
+            }
+            if (data.preferred_region) {
+                const prev = currentRegion;
+                currentRegion = data.preferred_region.toUpperCase();
+                localStorage.setItem('lacuna_region', currentRegion.toLowerCase());
+                localStorage.setItem('newsRegion', currentRegion);
+                if (regEl) regEl.textContent = currentRegion;
+                if (prev !== currentRegion) {
+                    buildRegionGrid();
+                    loadQuery(currentQuery, currentCategoryName);
+                }
             }
         })
         .catch(() => {});
@@ -167,6 +151,7 @@ function loadReadingHistory() {
             items.forEach(item => {
                 const card = document.createElement('div');
                 card.className = 'side-history-card';
+                card.dataset.testid = 'side-history-card';
                 card.title = 'Click to open roundup';
 
                 const img = document.createElement('img');
@@ -182,6 +167,7 @@ function loadReadingHistory() {
 
                 const title = document.createElement('div');
                 title.className = 'side-history-title';
+                title.dataset.testid = 'side-history-title';
                 title.textContent = item.title;
 
                 const meta = document.createElement('div');
@@ -285,7 +271,7 @@ function clearReadingHistory() {
             <rect x="24" y="24" width="752" height="452" fill="none" stroke="hsl(${hue}, 40%, 35%)" stroke-width="2" opacity="0.35"/>
             <circle cx="400" cy="200" r="130" fill="hsl(${hue}, 50%, 25%)" opacity="0.25"/>
             <path d="M120 400 Q 400 280 680 410" stroke="hsl(${hue}, 55%, 45%)" stroke-width="6" fill="none" opacity="0.35"/>
-            <text x="400" y="240" fill="hsl(${hue}, 35%, 85%)" font-family="Courier New, monospace" font-size="24" font-weight="700" text-anchor="middle" letter-spacing="2">${clean.replace(/[<>&"]/g, '')}</text>
+            <text x="400" y="240" fill="hsl(${hue}, 35%, 85%)" font-family="Glacial Indifference, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="24" font-weight="700" text-anchor="middle" letter-spacing="2">${clean.replace(/[<>&"]/g, '')}</text>
         </svg>`;
         return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
     }
@@ -297,10 +283,12 @@ function clearReadingHistory() {
         const title = cluster_title || art.title || '';
         const el = document.createElement('div');
         el.className = 'hero-lead';
+        el.dataset.testid = 'hero-lead-card';
         el.addEventListener('click', () => openReader(nd));
 
         const media = document.createElement('div');
         media.className = 'hero-lead-media';
+        media.dataset.testid = 'hero-lead-media';
         const img = document.createElement('img');
         img.className = 'hero-lead-img';
         img.src = cluster_image || getFallbackImage(title);
@@ -325,12 +313,14 @@ function clearReadingHistory() {
 
         const titleEl = document.createElement('div');
         titleEl.className = 'hero-lead-title';
+        titleEl.dataset.testid = 'hero-lead-title';
         titleEl.textContent = title;
         body.appendChild(titleEl);
 
         if (consensus_summary) {
             const sum = document.createElement('div');
             sum.className = 'hero-lead-summary';
+            sum.dataset.testid = 'hero-lead-summary';
             sum.textContent = consensus_summary;
             body.appendChild(sum);
         }
@@ -364,6 +354,7 @@ function clearReadingHistory() {
         const title = cluster_title || art.title || '';
         const el = document.createElement('div');
         el.className = 'hero-side';
+        el.dataset.testid = 'hero-side-card';
         el.addEventListener('click', () => openReader(nd));
 
         const img = document.createElement('img');
@@ -388,12 +379,14 @@ function clearReadingHistory() {
 
         const titleEl = document.createElement('div');
         titleEl.className = 'hero-side-title';
+        titleEl.dataset.testid = 'hero-side-title';
         titleEl.textContent = cluster_title || art.title;
         body.appendChild(titleEl);
 
         if (consensus_summary) {
             const sum = document.createElement('div');
             sum.className = 'hero-side-summary';
+            sum.dataset.testid = 'hero-side-summary';
             sum.textContent = consensus_summary.length > 150 ? consensus_summary.slice(0, 147) + '...' : consensus_summary;
             body.appendChild(sum);
         }
@@ -411,6 +404,7 @@ function clearReadingHistory() {
 
         const btn = document.createElement('button');
         btn.className = 'hero-sources-btn';
+        btn.dataset.testid = 'hero-sources-btn';
         btn.type = 'button';
         btn.innerHTML = `${articles.length} source${articles.length === 1 ? '' : 's'} <span class="sarrow">▼</span>`;
 
@@ -449,6 +443,7 @@ function clearReadingHistory() {
 
         const card = document.createElement('div');
         card.className = 'cluster-row';
+        card.dataset.testid = 'cluster-card';
         card.addEventListener('click', () => openReader(nd));
 
         card.appendChild(buildImageCol(cluster_image, title));
@@ -469,6 +464,7 @@ function clearReadingHistory() {
 
         const btn = document.createElement('button');
         btn.className = 'cr-sources-btn';
+        btn.dataset.testid = 'cr-sources-btn';
         btn.type = 'button';
         btn.innerHTML = `${n} source${n === 1 ? '' : 's'} <span class="sarrow">▼</span>`;
 
@@ -522,12 +518,14 @@ function clearReadingHistory() {
 
         const titleEl = document.createElement('div');
         titleEl.className = 'cr-title';
+        titleEl.dataset.testid = 'cluster-title';
         titleEl.textContent = cluster_title || art.title;
         textCol.appendChild(titleEl);
 
         if (consensus_summary) {
             const sum = document.createElement('div');
             sum.className = 'cr-summary';
+            sum.dataset.testid = 'cluster-summary';
             sum.textContent = consensus_summary;
             textCol.appendChild(sum);
         }
@@ -536,116 +534,13 @@ function clearReadingHistory() {
     }
 
     function openReader(nd) {
-        const { articles, cluster_image, cluster_title } = nd;
-        const modal = document.getElementById('reader-modal');
-        const backdrop = document.getElementById('reader-backdrop');
-        const inner = document.getElementById('reader-inner');
-
-        inner.innerHTML = `<div class="reader-loading"><span class="blink">Preparing roundup from ${articles.length} source${articles.length > 1 ? 's' : ''}...</span></div>`;
-        modal.style.display = 'flex';
-        backdrop.classList.add('open');
-        document.body.style.overflow = 'hidden';
-
-        fetch('/api/synthesize', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                title: cluster_title || articles[0].title,
-                image: cluster_image || '',
-                articles: articles.map(a => ({ title: a.title, url: a.url, summary: a.summary || '' }))
-            })
-        })
-        .then(r => r.json())
-        .then(data => {
-            renderReaderContent(inner, nd, data.article || data.error || 'Could not generate article.');
-            // Refresh history and stats in the background
-            loadAccountDetails();
-        })
-        .catch(() => { renderReaderContent(inner, nd, 'Failed to load — check your connection and try again.'); });
-    }
-
-    function renderReaderContent(inner, nd, articleText) {
-        const { articles, cluster_image, cluster_title } = nd;
-        const art = articles[0];
-        const title = cluster_title || art.title || '';
-        inner.innerHTML = '';
-
-        const img = document.createElement('img');
-        img.className = 'reader-hero';
-        img.src = cluster_image || getFallbackImage(title);
-        img.alt = '';
-        img.referrerPolicy = 'no-referrer';
-        img.onerror = () => {
-            img.onerror = null;
-            img.src = getFallbackImage(title);
-        };
-        inner.appendChild(img);
-
-        const body = document.createElement('div');
-        body.className = 'reader-body';
-
-        const hl = document.createElement('div');
-        hl.className = 'reader-headline';
-        hl.textContent = cluster_title || art.title;
-        body.appendChild(hl);
-
-        const meta = document.createElement('div');
-        meta.className = 'reader-meta';
-        meta.innerHTML = `<span>${formatDate(art.published)}</span><span style="color:var(--border)">·</span><span>${articles.length} sources</span>`;
-        body.appendChild(meta);
-
-        const articleDiv = document.createElement('div');
-        articleDiv.className = 'reader-article';
-        articleText.split(/\n+/).filter(p => p.trim()).forEach(p => {
-            const el = document.createElement('p');
-            el.textContent = p.trim();
-            articleDiv.appendChild(el);
-        });
-        body.appendChild(articleDiv);
-
-        const hr = document.createElement('hr');
-        hr.className = 'reader-divider';
-        body.appendChild(hr);
-
-        const srcLabel = document.createElement('div');
-        srcLabel.className = 'reader-sources-label';
-        srcLabel.textContent = 'Sources';
-        body.appendChild(srcLabel);
-
-        const srcWrap = document.createElement('div');
-        articles.forEach(a => {
-            const chip = document.createElement('a');
-            chip.className = 'reader-source-chip';
-            chip.href = a.url;
-            chip.target = '_blank';
-            chip.rel = 'noopener';
-            chip.textContent = formatSource(a);
-            chip.addEventListener('click', e => e.stopPropagation());
-            srcWrap.appendChild(chip);
-        });
-        body.appendChild(srcWrap);
-        inner.appendChild(body);
-    }
-
-    function closeReader() {
-        document.getElementById('reader-modal').style.display = 'none';
-        document.getElementById('reader-backdrop').classList.remove('open');
-        const drawer = document.getElementById('side-menu-drawer');
-        if (!drawer || !drawer.classList.contains('open')) {
-            document.body.style.overflow = '';
+        try {
+            sessionStorage.setItem('active_roundup', JSON.stringify(nd));
+        } catch(e) {
+            console.error("Could not set active roundup", e);
         }
+        window.location.href = '/roundup';
     }
-
-    document.addEventListener('keydown', e => {
-        if (e.key === 'Escape') {
-            const drawer = document.getElementById('side-menu-drawer');
-            if (drawer && drawer.classList.contains('open')) {
-                closeSideMenu();
-            } else {
-                closeReader();
-            }
-        }
-    });
 
     document.addEventListener('click', () => {
         document.querySelectorAll('.hero-sources-panel.open, .sources-panel.open').forEach(openPanel => {
@@ -660,11 +555,13 @@ function clearReadingHistory() {
     function buildSourcesPanel(articles) {
         const panel = document.createElement('div');
         panel.className = 'sources-panel';
+        panel.dataset.testid = 'sources-panel';
         articles.forEach(src => {
             const item = document.createElement('div');
             item.className = 'source-item';
             const lnk = document.createElement('a');
             lnk.className = 'source-link';
+            lnk.dataset.testid = 'source-link';
             lnk.href = src.url;
             lnk.target = '_blank';
             lnk.rel = 'noopener';
@@ -725,7 +622,7 @@ function clearReadingHistory() {
         currentQuery = query;
         currentCategoryName = categoryName;
         document.getElementById('story-feed').innerHTML = '<div class="status blink">Loading...</div>';
-        const regionParam = (query === '__home__') ? `&region=${encodeURIComponent(currentRegion)}` : '';
+        const regionParam = `&region=${encodeURIComponent(currentRegion)}`;
         fetch(`/api/cluster?q=${encodeURIComponent(query)}${regionParam}`)
             .then(r => r.json())
             .then(data => renderClusters(data))
@@ -752,6 +649,17 @@ function clearReadingHistory() {
     if (searchInput) {
         searchInput.addEventListener('keypress', e => { if (e.key === 'Enter') triggerSearch(); });
     }
+
+    window.addEventListener('storage', e => {
+        if (e.key === 'lacuna_region' || e.key === 'newsRegion') {
+            const next = (e.newValue || 'US').toUpperCase();
+            if (next && next !== currentRegion) {
+                currentRegion = next;
+                buildRegionGrid();
+                loadQuery(currentQuery, currentCategoryName);
+            }
+        }
+    });
 
     applyTheme(currentTheme);
     buildRegionGrid();

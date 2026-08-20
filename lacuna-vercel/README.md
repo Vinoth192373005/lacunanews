@@ -26,8 +26,15 @@ cp .env.example .env
 Edit `.env` and configure your settings:
 
 ```bash
-SECRET_KEY
+SECRET_KEY=your-random-secret
+GOOGLE_CLIENT_ID=your-google-oauth-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-google-oauth-client-secret
 ```
+
+> **Google OAuth Setup**:
+> 1. In the Google Cloud Console, create OAuth 2.0 Client IDs for a Web Application.
+> 2. Add Authorized Redirect URI: `http://127.0.0.1:5001/login/google/callback` (or `https://your-domain.com/login/google/callback` in production).
+> 3. Copy Client ID and Client Secret into `.env`.
 
 Run the app locally:
 
@@ -43,7 +50,25 @@ http://127.0.0.1:5001
 
 ## Deployment
 
-For Render or similar Flask hosting:
+### Deploy to Vercel
+
+1. **Deploy with Vercel CLI**:
+   ```bash
+   cd lacuna-vercel
+   vercel
+   ```
+
+2. **Deploy via GitHub / Vercel Dashboard**:
+   - Push this directory or the repository to GitHub.
+   - Import the project into Vercel.
+   - Set **Root Directory** to `lacuna-vercel` (if importing from root repo) or `./`.
+   - Add Environment Variables in Project Settings:
+     - `SECRET_KEY`: Long random string (e.g. `openssl rand -hex 32`)
+     - `DATABASE_URL` *(Optional, recommended for persistent users)*: PostgreSQL / Neon / Supabase connection string.
+     - `GOOGLE_CLIENT_ID` *(Optional, for Google Login)*: Google Cloud OAuth 2.0 Web Client ID.
+     - `GOOGLE_CLIENT_SECRET` *(Optional, for Google Login)*: Google Cloud OAuth 2.0 Client Secret.
+
+### Deploy to Render / Standard WSGI Host
 
 Build command:
 
@@ -57,10 +82,13 @@ Start command:
 gunicorn news:app
 ```
 
-Set these environment variables in your hosting dashboard:
+Environment variables:
 
 ```bash
 SECRET_KEY
+DATABASE_URL
+GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET
 ```
 
 ## Notes
@@ -68,6 +96,40 @@ SECRET_KEY
 The app uses SQLite by default for local login accounts. On free hosting platforms, local SQLite files may be temporary and can disappear after a redeploy or restart. For a university demo this is usually fine, but for a longer-running app you should move users to a hosted database.
 
 The optional `sentence-transformers` model is not included in `requirements.txt` to keep deployment lighter. If it is not installed, the app automatically falls back to TF-IDF clustering.
+
+## Automated Selenium Testing
+
+The project includes an end-to-end (E2E) automated testing suite built with **Selenium WebDriver** and **pytest**, utilizing the Page Object Model (POM) pattern and isolated temporary test databases.
+
+### Run All Selenium Tests (Headless)
+
+```bash
+pytest tests/ -v
+```
+
+### Run Tests in Interactive / Headed Mode
+
+To watch the browser navigate and interact in real time:
+
+```bash
+pytest tests/ --headed -v
+```
+
+### Run Specific Test Modules
+
+```bash
+# Authentication & Form Validation
+pytest tests/test_auth_selenium.py -v
+
+# Story Feed, Navigation & Reader Modal
+pytest tests/test_feed_selenium.py -v
+
+# Side Drawer Settings, Theming & History
+pytest tests/test_side_menu_selenium.py -v
+
+# Full End-to-End User Journey
+pytest tests/test_e2e_user_journey.py -v
+```
 
 ## Android App
 
