@@ -2,7 +2,7 @@
  * ExcelJS Report Generator
  * Generates Enterprise 4-Sheet Excel Workbooks for QA Test Suites
  * Sheet 1: Summary
- * Sheet 2: Test Cases
+ * Sheet 2: Test Cases (Styled identically to enterprise specification)
  * Sheet 3: Failed Tests
  * Sheet 4: Execution Logs
  */
@@ -43,7 +43,7 @@ class ExcelReporter {
     testId,
     module,
     scenarioName,
-    browser = 'Chrome (Headless)',
+    browser = 'Google Chrome',
     status = 'PASSED',
     startTime = new Date(),
     endTime = new Date(),
@@ -82,7 +82,7 @@ class ExcelReporter {
    */
   async generateReport(targetPath = null) {
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = 'Enterprise QA Automation Architecture';
+    workbook.creator = 'Senior QA Automation Architect';
     workbook.created = new Date();
     workbook.properties.date1904 = false;
 
@@ -110,20 +110,20 @@ class ExcelReporter {
     // Title Banner
     summarySheet.mergeCells('A1:H2');
     const titleCell = summarySheet.getCell('A1');
-    titleCell.value = `📊 ${this.reportTitle.toUpperCase()} - AUTOMATION EXECUTION SUMMARY`;
-    titleCell.font = { name: 'Calibri', size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.value = `📊 ${this.reportTitle.toUpperCase().replace(/_/g, ' ')} - AUTOMATION EXECUTION SUMMARY`;
+    titleCell.font = { name: 'Segoe UI', size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
     titleCell.fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FF1A365D' } // Dark Navy
+      fgColor: { argb: 'FF1E40AF' } // Deep Royal Blue
     };
 
     // Subtitle / Date
     summarySheet.mergeCells('A3:H3');
     const subCell = summarySheet.getCell('A3');
-    subCell.value = `Generated on: ${new Date().toUTCString()} | Environment: ${appConfig.env.toUpperCase()} | Suite: ${this.reportTitle}`;
-    subCell.font = { name: 'Calibri', size: 11, italic: true, color: { argb: 'FF4A5568' } };
+    subCell.value = `Execution Date: ${new Date().toISOString().split('T')[0]} | Environment: ${appConfig.env.toUpperCase()} | Suite: ${this.reportTitle}`;
+    subCell.font = { name: 'Segoe UI', size: 11, italic: true, color: { argb: 'FF475569' } };
     subCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
     // KPI Summary Table Headers
@@ -140,20 +140,20 @@ class ExcelReporter {
 
     summarySheet.getRow(5).values = summaryHeaders;
     const headerRow = summarySheet.getRow(5);
-    headerRow.height = 28;
-    headerRow.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+    headerRow.height = 30;
+    headerRow.font = { name: 'Segoe UI', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
     headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
     headerRow.eachCell((cell) => {
       cell.fill = {
         type: 'pattern',
         pattern: 'solid',
-        fgColor: { argb: 'FF2B6CB0' } // Blue
+        fgColor: { argb: 'FF3B82F6' } // Enterprise Blue
       };
       cell.border = {
-        top: { style: 'thin', color: { argb: 'FFCBD5E0' } },
-        bottom: { style: 'medium', color: { argb: 'FF1A365D' } },
-        left: { style: 'thin', color: { argb: 'FFCBD5E0' } },
-        right: { style: 'thin', color: { argb: 'FFCBD5E0' } }
+        top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+        bottom: { style: 'medium', color: { argb: 'FF1E3A8A' } },
+        left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+        right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
       };
     });
 
@@ -171,42 +171,39 @@ class ExcelReporter {
 
     summarySheet.addRow(summaryData);
     const dataRow = summarySheet.getRow(6);
-    dataRow.height = 26;
-    dataRow.font = { name: 'Calibri', size: 12, bold: true };
+    dataRow.height = 28;
+    dataRow.font = { name: 'Segoe UI', size: 12, bold: true };
     dataRow.alignment = { horizontal: 'center', vertical: 'middle' };
     dataRow.eachCell((cell, colNumber) => {
       cell.border = {
-        top: { style: 'thin', color: { argb: 'FFCBD5E0' } },
-        bottom: { style: 'thin', color: { argb: 'FFCBD5E0' } },
-        left: { style: 'thin', color: { argb: 'FFCBD5E0' } },
-        right: { style: 'thin', color: { argb: 'FFCBD5E0' } }
+        top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+        bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+        left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+        right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
       };
-      // Green highlight for passed and pass percentage
       if (colNumber === 4 || colNumber === 7) {
-        cell.font = { name: 'Calibri', size: 12, bold: true, color: { argb: 'FF22543D' } };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC6F6D5' } };
+        cell.font = { name: 'Segoe UI', size: 12, bold: true, color: { argb: 'FF166534' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
       }
-      // Red for failed if any
       if (colNumber === 5 && failed > 0) {
-        cell.font = { name: 'Calibri', size: 12, bold: true, color: { argb: 'FF742A2A' } };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFED7D7' } };
+        cell.font = { name: 'Segoe UI', size: 12, bold: true, color: { argb: 'FF991B1B' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
       }
     });
 
-    // Summary Column Widths
     summarySheet.columns = [
+      { width: 20 },
       { width: 18 },
       { width: 16 },
       { width: 14 },
-      { width: 12 },
-      { width: 12 },
-      { width: 12 },
-      { width: 18 },
-      { width: 20 }
+      { width: 14 },
+      { width: 14 },
+      { width: 20 },
+      { width: 22 }
     ];
 
     // -------------------------------------------------------------
-    // SHEET 2: TEST CASES
+    // SHEET 2: TEST CASES (EXACTLY MATCHING USER SCREENSHOT)
     // -------------------------------------------------------------
     const testCasesSheet = workbook.addWorksheet('Test Cases', {
       views: [{ showGridLines: true }]
@@ -215,7 +212,7 @@ class ExcelReporter {
     const tcHeaders = [
       'Test ID',
       'Module',
-      'Scenario Name',
+      'Test Name',
       'Browser / Device',
       'Status',
       'Start Time',
@@ -225,17 +222,24 @@ class ExcelReporter {
 
     testCasesSheet.getRow(1).values = tcHeaders;
     const tcHeaderRow = testCasesSheet.getRow(1);
-    tcHeaderRow.height = 26;
-    tcHeaderRow.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+    tcHeaderRow.height = 32;
+    tcHeaderRow.font = { name: 'Segoe UI', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
     tcHeaderRow.alignment = { horizontal: 'center', vertical: 'middle' };
-    tcHeaderRow.eachCell((cell) => {
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2D3748' } };
-      cell.border = {
-        top: { style: 'thin' },
-        bottom: { style: 'medium' },
-        left: { style: 'thin' },
-        right: { style: 'thin' }
+    tcHeaderRow.eachCell((cell, colNumber) => {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF3B82F6' } // Exact Blue from screenshot
       };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FF93C5FD' } },
+        bottom: { style: 'medium', color: { argb: 'FF1D4ED8' } },
+        left: { style: 'thin', color: { argb: 'FF93C5FD' } },
+        right: { style: 'thin', color: { argb: 'FF93C5FD' } }
+      };
+      if (colNumber === 1) cell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+      if (colNumber === 2) cell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+      if (colNumber === 3) cell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
     });
 
     this.testResults.forEach((tr, index) => {
@@ -249,12 +253,12 @@ class ExcelReporter {
         tr.endTime,
         tr.duration
       ]);
-      row.height = 20;
+      row.height = 24;
       row.alignment = { vertical: 'middle' };
 
-      // Alternating row background
-      const bgColor = index % 2 === 0 ? 'FFFFFFFF' : 'FFF7FAFC';
+      const bgColor = index % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
       row.eachCell((cell, colNumber) => {
+        cell.font = { name: 'Segoe UI', size: 10.5 };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
         cell.border = {
           top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
@@ -262,29 +266,40 @@ class ExcelReporter {
           left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
           right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
         };
-        // Format Status Cell (Col 5)
-        if (colNumber === 5) {
+
+        if (colNumber === 1) {
+          cell.font = { name: 'Segoe UI', size: 10.5, bold: true, color: { argb: 'FF1E293B' } };
+          cell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+        } else if (colNumber === 2) {
+          cell.font = { name: 'Segoe UI', size: 10.5, color: { argb: 'FF334155' } };
+          cell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+        } else if (colNumber === 3) {
+          cell.font = { name: 'Segoe UI', size: 10.5, color: { argb: 'FF0F172A' } };
+          cell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+        } else if (colNumber === 5) {
           cell.alignment = { horizontal: 'center', vertical: 'middle' };
           if (tr.status === 'PASSED') {
-            cell.font = { bold: true, color: { argb: 'FF22543D' } };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC6F6D5' } };
+            cell.font = { name: 'Segoe UI', size: 10.5, bold: true, color: { argb: 'FF15803D' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
           } else if (tr.status === 'FAILED') {
-            cell.font = { bold: true, color: { argb: 'FF742A2A' } };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFED7D7' } };
+            cell.font = { name: 'Segoe UI', size: 10.5, bold: true, color: { argb: 'FFB91C1C' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
           }
+        } else {
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
         }
       });
     });
 
     testCasesSheet.columns = [
-      { width: 14 },
-      { width: 22 },
-      { width: 45 },
-      { width: 24 },
-      { width: 14 },
-      { width: 22 },
-      { width: 22 },
-      { width: 14 }
+      { width: 16 }, // Test ID
+      { width: 28 }, // Module
+      { width: 65 }, // Test Name
+      { width: 24 }, // Browser / Device
+      { width: 14 }, // Status
+      { width: 22 }, // Start Time
+      { width: 22 }, // End Time
+      { width: 14 }  // Duration
     ];
 
     // -------------------------------------------------------------
@@ -304,11 +319,11 @@ class ExcelReporter {
 
     failedSheet.getRow(1).values = failedHeaders;
     const failedHeaderRow = failedSheet.getRow(1);
-    failedHeaderRow.height = 26;
-    failedHeaderRow.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+    failedHeaderRow.height = 30;
+    failedHeaderRow.font = { name: 'Segoe UI', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
     failedHeaderRow.alignment = { horizontal: 'center', vertical: 'middle' };
     failedHeaderRow.eachCell((cell) => {
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF9B2C2C' } }; // Dark Red
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDC2626' } };
     });
 
     if (this.failedTests.length === 0) {
@@ -319,8 +334,8 @@ class ExcelReporter {
         'All Browsers/Devices',
         'All URLs verified'
       ]);
-      row.height = 24;
-      row.font = { italic: true, color: { argb: 'FF22543D' } };
+      row.height = 26;
+      row.font = { name: 'Segoe UI', size: 11, italic: true, color: { argb: 'FF15803D' } };
     } else {
       this.failedTests.forEach(ft => {
         const row = failedSheet.addRow([
@@ -330,7 +345,7 @@ class ExcelReporter {
           ft.browser,
           ft.url
         ]);
-        row.height = 22;
+        row.height = 24;
       });
     }
 
@@ -359,11 +374,11 @@ class ExcelReporter {
 
     logsSheet.getRow(1).values = logHeaders;
     const logHeaderRow = logsSheet.getRow(1);
-    logHeaderRow.height = 26;
-    logHeaderRow.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+    logHeaderRow.height = 30;
+    logHeaderRow.font = { name: 'Segoe UI', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
     logHeaderRow.alignment = { horizontal: 'center', vertical: 'middle' };
     logHeaderRow.eachCell((cell) => {
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4A5568' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF475569' } };
     });
 
     this.executionLogs.forEach((log, index) => {
@@ -374,9 +389,10 @@ class ExcelReporter {
         log.result,
         log.remarks
       ]);
-      row.height = 20;
-      const bgColor = index % 2 === 0 ? 'FFFFFFFF' : 'FFF7FAFC';
+      row.height = 22;
+      const bgColor = index % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
       row.eachCell((cell, colNumber) => {
+        cell.font = { name: 'Segoe UI', size: 10 };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
         cell.border = {
           top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
@@ -387,9 +403,9 @@ class ExcelReporter {
         if (colNumber === 4) {
           cell.alignment = { horizontal: 'center' };
           if (log.result === 'PASSED') {
-            cell.font = { bold: true, color: { argb: 'FF22543D' } };
+            cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF15803D' } };
           } else if (log.result === 'FAILED') {
-            cell.font = { bold: true, color: { argb: 'FF742A2A' } };
+            cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFB91C1C' } };
           }
         }
       });
