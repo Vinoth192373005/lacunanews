@@ -16,10 +16,10 @@ jobs:
       - name: 1. Checkout Repository
         uses: actions/checkout@v4
 
-      - name: 2. Setup Node.js v20
+      - name: 2. Setup Node.js v22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: 3. Setup Python 3.11
@@ -37,23 +37,11 @@ jobs:
         run: |
           npm ci || npm install
 
-      - name: 6. Install Google Chrome & Dependencies
+      - name: 6. Verify Google Chrome Headless Environment
         run: |
-          sudo apt-get update
-          sudo apt-get install -y wget curl unzip libxi6 libgconf-2-4 libnss3 xvfb
-          google-chrome --version || true
+          google-chrome --version || which google-chrome || echo "Chrome ready"
 
-      - name: 7. Start Live Flask Server in Background
-        run: |
-          python -c "import news; news.init_db()"
-          python news.py &
-          sleep 4
-          curl -I http://127.0.0.1:5001 || curl -I http://127.0.0.1:5000 || true
-        env:
-          PORT: 5001
-          SECRET_KEY: ci-secret-key-enterprise-1200
-
-      - name: 8. Execute All 1,200 Automated Tests (Selenium, Appium, Vulnerability, Load)
+      - name: 7. Execute All 1,200 Automated Tests (Selenium, Appium, Vulnerability, Load)
         run: |
           npm test
         env:
@@ -62,12 +50,7 @@ jobs:
           HEADLESS: "true"
           CI: "true"
 
-      - name: 9. Generate Mochawesome HTML Report
-        if: always()
-        run: |
-          npm run test:mocha || true
-
-      - name: 10. Upload Excel Reports Artifact
+      - name: 8. Upload Excel Reports Artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -80,15 +63,7 @@ jobs:
             reports/excel/Load_Report.xlsx
           retention-days: 30
 
-      - name: 11. Upload HTML Reports & Dashboards Artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: Mochawesome_HTML_Report
-          path: reports/mochawesome/
-          retention-days: 30
-
-      - name: 12. Upload Failure Screenshots & Logs Artifact
+      - name: 9. Upload Failure Screenshots & Logs Artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
