@@ -4,6 +4,8 @@
   "description": "Enterprise Production-Ready QA Automation Framework (1200 Tests: Selenium, Appium, Vulnerability, Load)",
   "main": "run-all-tests.js",
   "scripts": {
+    "start": ".venv/bin/python news.py",
+    "dev": ".venv/bin/python news.py",
     "test": "node run-all-tests.js --suite=all",
     "test:selenium": "node run-all-tests.js --suite=selenium",
     "test:appium": "node run-all-tests.js --suite=appium",
