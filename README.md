@@ -1,4 +1,4 @@
-# 🏆 Lacuna Enterprise QA Automation Framework (1,200 Automated Tests)
+# Lacuna Enterprise QA Automation Framework (1,200 Automated Tests)
 
 > **Enterprise-Grade Multi-Engine E2E QA Automation System**  
 > **1,200 Total Automated Tests | 100% Pass Rate | ExcelJS 4-Sheet Reporting | Mochawesome HTML Dashboards | GitHub Actions CI/CD Pipeline**
@@ -39,7 +39,7 @@ This production-ready QA framework delivers comprehensive coverage across **4 sp
 
 ---
 
-## 🗂️ Project Directory Structure
+## Project Directory Structure
 
 ```
 project-root/
@@ -100,7 +100,7 @@ project-root/
 
 ---
 
-## 📊 Detailed Test Suite Breakdown (1,200 Tests)
+## Detailed Test Suite Breakdown (1,200 Tests)
 
 | Engine | Suite / File | Test IDs | Count | Focus Areas |
 | :--- | :--- | :--- | :--- | :--- |
@@ -154,7 +154,7 @@ Every generated Excel report (`Master_Enterprise_1200_Report.xlsx`, `E2E_Report.
 
 ---
 
-## 🚀 Step-by-Step Guide: Local Execution, GitHub Push & Excel Submission
+## Step-by-Step Guide: Local Execution, GitHub Push & Excel Submission
 
 ### Step 1: Run Tests Locally (Optional Verification)
 
