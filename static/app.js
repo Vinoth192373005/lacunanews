@@ -589,6 +589,22 @@ function clearReadingHistory() {
             return b[1].articles.length - a[1].articles.length;
         });
 
+        // ── Populate Top Carousel Stories ──
+        if (typeof window !== 'undefined') {
+            window.heroStories = sorted.map(([, nd]) => {
+                const firstArt = nd.articles && nd.articles[0] ? nd.articles[0] : {};
+                return {
+                    title: nd.cluster_title || firstArt.title || 'Breaking Briefing',
+                    summary: nd.consensus_summary || firstArt.summary || firstArt.title || '',
+                    source: (firstArt.source || 'Top Story'),
+                    image: nd.cluster_image || firstArt.image || ''
+                };
+            });
+            if (typeof renderActiveHero === 'function') {
+                renderActiveHero();
+            }
+        }
+
         // ── Hero section: lead story with three supporting stories ──
         const heroCount = Math.min(4, sorted.length);
         if (heroCount >= 1) {
@@ -628,6 +644,7 @@ function clearReadingHistory() {
             .then(data => renderClusters(data))
             .catch(() => { document.getElementById('story-feed').innerHTML = '<div class="status">[Error] Failed to load.</div>'; });
     }
+    window.loadQuery = loadQuery;
 
     function triggerSearch() {
         const q = document.getElementById('search-input').value.trim();
