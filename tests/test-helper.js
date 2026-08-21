@@ -22,7 +22,8 @@ function createSuiteTracker(suiteName, defaultModule = 'General') {
         testName: `[${testId}] ${scenarioName}`,
         stepDescription: `Starting execution for scenario: ${scenarioName}`,
         result: 'IN_PROGRESS',
-        remarks: `Module: ${moduleName || defaultModule}`
+        remarks: `Module: ${moduleName || defaultModule}`,
+        suite: suiteName
       });
 
       try {
@@ -45,7 +46,8 @@ function createSuiteTracker(suiteName, defaultModule = 'General') {
           startTime: startTime.toISOString().replace('T', ' ').substring(0, 19),
           endTime: endTime.toISOString().replace('T', ' ').substring(0, 19),
           duration: `${durationSec}s`,
-          failureReason
+          failureReason,
+          suite: suiteName
         });
 
         logs.push({
@@ -53,7 +55,8 @@ function createSuiteTracker(suiteName, defaultModule = 'General') {
           testName: `[${testId}] ${scenarioName}`,
           stepDescription: `Finished execution with status: ${status}`,
           result: status,
-          remarks: failureReason ? `Error: ${failureReason}` : `Completed in ${durationSec}s`
+          remarks: failureReason ? `Error: ${failureReason}` : `Completed in ${durationSec}s`,
+          suite: suiteName
         });
       }
     });

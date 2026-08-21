@@ -1,7 +1,7 @@
 /**
- * Master Enterprise Test Runner & Excel Orchestrator
- * Executes all 1,200 Automated Tests across Selenium, Appium, Vulnerability, and Load suites.
- * Generates individual and consolidated Master Excel Reports.
+ * Master Enterprise Test Runner & Multi-Engine Orchestrator
+ * Executes Automated Tests across Selenium, Appium, Vulnerability, and Load suites.
+ * Generates modular Excel reports, interactive HTML dashboards, and GitHub Actions Step Summaries.
  */
 
 const Mocha = require('mocha');
@@ -9,6 +9,7 @@ const path = require('path');
 const fs = require('fs');
 const logger = require('./utilities/logger');
 const TestServerManager = require('./utilities/test-server-manager');
+const HtmlReporter = require('./utilities/html-reporter');
 const {
   ExcelReporter,
   globalResultsStore,
@@ -21,8 +22,9 @@ const suiteArg = args.find(a => a.startsWith('--suite='));
 const targetSuite = suiteArg ? suiteArg.split('=')[1].toLowerCase() : 'all';
 
 async function main() {
+  const isMasterRun = targetSuite === 'all';
   logger.info('================================================================================');
-  logger.info('🚀 STARTING ENTERPRISE MULTI-ENGINE QA AUTOMATION (1,200 TEST CASES)');
+  logger.info(`🚀 ENTERPRISE QA AUTOMATION: ${isMasterRun ? 'ALL 1,200 TESTS' : targetSuite.toUpperCase() + ' SUITE'}`);
   logger.info(`🎯 Target Suite: ${targetSuite.toUpperCase()}`);
   logger.info('================================================================================');
 
@@ -67,41 +69,82 @@ async function main() {
     logger.info('================================================================================');
 
     try {
-      // 1. Generate Individual Excel Reports
+      // 1. Selenium Suite Reporting
       if (globalResultsStore.selenium.length > 0) {
         const selReporter = new ExcelReporter('E2E_Report', 'E2E_Report.xlsx');
         selReporter.testResults = globalResultsStore.selenium;
-        selReporter.executionLogs = globalResultsStore.logs.filter(l => l.remarks.includes('Authentication') || l.remarks.includes('Form Validation') || l.remarks.includes('UI Components') || l.remarks.includes('Navigation') || l.remarks.includes('Business Workflows') || l.remarks.includes('Settings & Preferences'));
+        selReporter.executionLogs = globalResultsStore.logs.filter(l => l.suite === 'selenium' || !l.suite);
         await selReporter.generateReport();
+
+        const selHtml = new HtmlReporter('Selenium Web E2E Test Suite', 'selenium-report.html');
+        selHtml.testResults = globalResultsStore.selenium;
+        selHtml.executionLogs = selReporter.executionLogs;
+        await selHtml.generateHtmlReport();
+        await selHtml.appendGitHubStepSummary();
       }
 
+      // 2. Appium Mobile Suite Reporting
       if (globalResultsStore.appium.length > 0) {
         const appReporter = new ExcelReporter('Mobile_E2E_Report', 'Mobile_E2E_Report.xlsx');
         appReporter.testResults = globalResultsStore.appium;
-        appReporter.executionLogs = globalResultsStore.logs.filter(l => l.remarks.includes('App Lifecycle') || l.remarks.includes('Mobile Auth') || l.remarks.includes('Touch Gestures') || l.remarks.includes('Mobile Forms') || l.remarks.includes('Mobile Navigation') || l.remarks.includes('Mobile AI & Workflows'));
+        appReporter.executionLogs = globalResultsStore.logs.filter(l => l.suite === 'appium' || !l.suite);
         await appReporter.generateReport();
+
+        const appHtml = new HtmlReporter('Appium Mobile Android Test Suite', 'appium-report.html');
+        appHtml.testResults = globalResultsStore.appium;
+        appHtml.executionLogs = appReporter.executionLogs;
+        await appHtml.generateHtmlReport();
+        await appHtml.appendGitHubStepSummary();
       }
 
+      // 3. Vulnerability & Security Suite Reporting
       if (globalResultsStore.vulnerability.length > 0) {
         const vulnReporter = new ExcelReporter('Vulnerability_Report', 'Vulnerability_Report.xlsx');
         vulnReporter.testResults = globalResultsStore.vulnerability;
-        vulnReporter.executionLogs = globalResultsStore.logs.filter(l => l.remarks.includes('Injection') || l.remarks.includes('Auth & Session') || l.remarks.includes('CORS') || l.remarks.includes('IDOR') || l.remarks.includes('Sanitization') || l.remarks.includes('DoS'));
+        vulnReporter.executionLogs = globalResultsStore.logs.filter(l => l.suite === 'vulnerability' || !l.suite);
         await vulnReporter.generateReport();
+
+        const vulnHtml = new HtmlReporter('OWASP Vulnerability & Security Suite', 'vulnerability-report.html');
+        vulnHtml.testResults = globalResultsStore.vulnerability;
+        vulnHtml.executionLogs = vulnReporter.executionLogs;
+        await vulnHtml.generateHtmlReport();
+        await vulnHtml.appendGitHubStepSummary();
       }
 
+      // 4. Load & Performance Suite Reporting
       if (globalResultsStore.load.length > 0) {
         const loadReporter = new ExcelReporter('Load_Report', 'Load_Report.xlsx');
         loadReporter.testResults = globalResultsStore.load;
-        loadReporter.executionLogs = globalResultsStore.logs.filter(l => l.remarks.includes('Baseline') || l.remarks.includes('Concurrency') || l.remarks.includes('Stress') || l.remarks.includes('Endurance') || l.remarks.includes('AI Compute') || l.remarks.includes('DB Transactions'));
+        loadReporter.executionLogs = globalResultsStore.logs.filter(l => l.suite === 'load' || !l.suite);
         await loadReporter.generateReport();
+
+        const loadHtml = new HtmlReporter('Load & Stress Performance SLA Suite', 'load-report.html');
+        loadHtml.testResults = globalResultsStore.load;
+        loadHtml.executionLogs = loadReporter.executionLogs;
+        await loadHtml.generateHtmlReport();
+        await loadHtml.appendGitHubStepSummary();
       }
 
-      // 2. Generate Consolidated Master 1200-Test Report
-      await generateMasterReport();
+      // 5. Consolidated Master Report (When running full 1200 suite or requested)
+      if (isMasterRun) {
+        await generateMasterReport();
 
-      logger.info('🎉 All Excel Reports successfully compiled in ./reports/excel/');
+        const allResults = [
+          ...globalResultsStore.selenium,
+          ...globalResultsStore.appium,
+          ...globalResultsStore.vulnerability,
+          ...globalResultsStore.load
+        ];
+        const masterHtml = new HtmlReporter('Master Enterprise 1,200 Tests Consolidated Dashboard', 'master-report.html');
+        masterHtml.testResults = allResults;
+        masterHtml.executionLogs = globalResultsStore.logs;
+        await masterHtml.generateHtmlReport();
+        await masterHtml.appendGitHubStepSummary();
+      }
+
+      logger.info('🎉 All designated Excel & HTML reports successfully compiled in ./reports/');
     } catch (reportErr) {
-      logger.error(`Error compiling Excel reports: ${reportErr.message}`);
+      logger.error(`Error compiling reports: ${reportErr.message}`);
     } finally {
       await serverManager.stopServer();
       process.exit(failures > 0 ? 1 : 0);

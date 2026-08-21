@@ -6,10 +6,26 @@ on:
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
+    inputs:
+      target_suite:
+        description: 'Select Test Suite to Execute'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - selenium
+          - appium
+          - load
+          - vulnerability
 
 jobs:
-  enterprise-qa-execution:
-    name: Execute 1,200 Multi-Engine Tests & Generate Excel Reports
+  # ============================================================================
+  # 1. SELENIUM WEB E2E TEST SUITE (300 TESTS)
+  # ============================================================================
+  selenium-e2e-tests:
+    name: 🌐 Selenium Web E2E Suite (300 Tests)
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.target_suite == 'all' || github.event.inputs.target_suite == 'selenium'
     runs-on: ubuntu-latest
 
     steps:
@@ -41,7 +57,224 @@ jobs:
         run: |
           google-chrome --version || which google-chrome || echo "Chrome ready"
 
-      - name: 7. Execute All 1,200 Automated Tests (Selenium, Appium, Vulnerability, Load)
+      - name: 7. Execute Selenium Web E2E Suite (300 Tests)
+        run: |
+          npm run test:selenium
+        env:
+          BASE_URL: http://127.0.0.1:5001
+          TEST_PORT: 5001
+          HEADLESS: "true"
+          CI: "true"
+
+      - name: 8. Upload Selenium E2E Report Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Selenium_E2E_Test_Report
+          path: |
+            reports/excel/E2E_Report.xlsx
+            reports/html/selenium-report.html
+            logs/
+            reports/failures/
+          retention-days: 30
+
+  # ============================================================================
+  # 2. APPIUM MOBILE ANDROID TEST SUITE (300 TESTS)
+  # ============================================================================
+  appium-mobile-tests:
+    name: 📱 Appium Mobile Android Suite (300 Tests)
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.target_suite == 'all' || github.event.inputs.target_suite == 'appium'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 2. Setup Node.js v22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: 3. Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 4. Install Python Backend Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: 5. Install Node.js QA Framework Dependencies
+        run: |
+          npm ci || npm install
+
+      - name: 6. Execute Appium Mobile Android Suite (300 Tests)
+        run: |
+          npm run test:appium
+        env:
+          BASE_URL: http://127.0.0.1:5001
+          TEST_PORT: 5001
+          HEADLESS: "true"
+          CI: "true"
+
+      - name: 7. Upload Appium Mobile Report Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Appium_Mobile_Test_Report
+          path: |
+            reports/excel/Mobile_E2E_Report.xlsx
+            reports/html/appium-report.html
+            logs/
+            reports/failures/
+          retention-days: 30
+
+  # ============================================================================
+  # 3. LOAD & PERFORMANCE STRESS TEST SUITE (300 TESTS)
+  # ============================================================================
+  load-performance-tests:
+    name: ⚡ Load & Stress Performance SLA Suite (300 Tests)
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.target_suite == 'all' || github.event.inputs.target_suite == 'load'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 2. Setup Node.js v22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: 3. Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 4. Install Python Backend Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: 5. Install Node.js QA Framework Dependencies
+        run: |
+          npm ci || npm install
+
+      - name: 6. Execute Load & Stress SLA Suite (300 Tests)
+        run: |
+          npm run test:load
+        env:
+          BASE_URL: http://127.0.0.1:5001
+          TEST_PORT: 5001
+          HEADLESS: "true"
+          CI: "true"
+
+      - name: 7. Upload Load Performance Report Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Load_Performance_Test_Report
+          path: |
+            reports/excel/Load_Report.xlsx
+            reports/html/load-report.html
+            logs/
+            reports/failures/
+          retention-days: 30
+
+  # ============================================================================
+  # 4. OWASP VULNERABILITY & SECURITY TEST SUITE (300 TESTS)
+  # ============================================================================
+  vulnerability-security-tests:
+    name: 🛡️ OWASP Vulnerability & Security Suite (300 Tests)
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.target_suite == 'all' || github.event.inputs.target_suite == 'vulnerability'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 2. Setup Node.js v22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: 3. Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 4. Install Python Backend Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: 5. Install Node.js QA Framework Dependencies
+        run: |
+          npm ci || npm install
+
+      - name: 6. Execute OWASP Vulnerability Suite (300 Tests)
+        run: |
+          npm run test:vulnerability
+        env:
+          BASE_URL: http://127.0.0.1:5001
+          TEST_PORT: 5001
+          HEADLESS: "true"
+          CI: "true"
+
+      - name: 7. Upload Vulnerability Security Report Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Vulnerability_Security_Test_Report
+          path: |
+            reports/excel/Vulnerability_Report.xlsx
+            reports/html/vulnerability-report.html
+            logs/
+            reports/failures/
+          retention-days: 30
+
+  # ============================================================================
+  # 5. CONSOLIDATED MASTER REPORT & QUALITY GATE (1,200 TESTS)
+  # ============================================================================
+  master-consolidation-quality-gate:
+    name: 🏆 Master 1,200 Tests Consolidated Report & Quality Gate
+    needs: [selenium-e2e-tests, appium-mobile-tests, load-performance-tests, vulnerability-security-tests]
+    if: always() && (github.event_name != 'workflow_dispatch' || github.event.inputs.target_suite == 'all')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 2. Setup Node.js v22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: 3. Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 4. Install Python Backend Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: 5. Install Node.js QA Framework Dependencies
+        run: |
+          npm ci || npm install
+
+      - name: 6. Execute Consolidated Master Suite (All 1,200 Tests)
         run: |
           npm test
         env:
@@ -50,25 +283,15 @@ jobs:
           HEADLESS: "true"
           CI: "true"
 
-      - name: 8. Upload Excel Reports Artifact
+      - name: 7. Upload Master Consolidated Excel & HTML Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Enterprise_Excel_Reports
+          name: Master_Enterprise_1200_Report
           path: |
             reports/excel/Master_Enterprise_1200_Report.xlsx
-            reports/excel/E2E_Report.xlsx
-            reports/excel/Mobile_E2E_Report.xlsx
-            reports/excel/Vulnerability_Report.xlsx
-            reports/excel/Load_Report.xlsx
-          retention-days: 30
-
-      - name: 9. Upload Failure Screenshots & Logs Artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: Execution_Logs_and_Screenshots
-          path: |
+            reports/html/master-report.html
+            reports/excel/
+            reports/html/
             logs/
-            reports/failures/
           retention-days: 30
