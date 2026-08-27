@@ -74,6 +74,13 @@ SAMPLE_CLUSTERS = {
         "cluster_image": "https://picsum.photos/800/600",
         "consensus_summary": "Researchers achieve record coherence times in silicon-based quantum processors.",
         "query_score": 1.0,
+        "sentiment": {
+            "positivity_pct": 86,
+            "negativity_pct": 14,
+            "total_comments": 8,
+            "sentiment": "positive",
+            "label": "Strongly Positive"
+        },
         "articles": [
             {
                 "title": "Major Breakthrough in Quantum Computing Announced",
@@ -98,6 +105,13 @@ SAMPLE_CLUSTERS = {
         "cluster_image": "https://picsum.photos/800/601",
         "consensus_summary": "Stock indices surged across Europe and Asia amid easing economic forecasts.",
         "query_score": 0.8,
+        "sentiment": {
+            "positivity_pct": 72,
+            "negativity_pct": 28,
+            "total_comments": 5,
+            "sentiment": "positive",
+            "label": "Mostly Positive"
+        },
         "articles": [
             {
                 "title": "Global Markets Rally Following Key Policy Decision",
@@ -114,6 +128,13 @@ SAMPLE_CLUSTERS = {
         "cluster_image": "",
         "consensus_summary": "Underdogs secure a dramatic victory in extra time.",
         "query_score": 0.6,
+        "sentiment": {
+            "positivity_pct": 65,
+            "negativity_pct": 35,
+            "total_comments": 4,
+            "sentiment": "positive",
+            "label": "Mostly Positive"
+        },
         "articles": [
             {
                 "title": "Championship Finals Set After Thrilling Semi-Final Match",
@@ -166,6 +187,7 @@ def clean_db(test_db_path: str):
     """Ensure database is clean before each test function."""
     with get_db() as db:
         db.execute("DELETE FROM article_history")
+        db.execute("DELETE FROM article_comments")
         db.execute("DELETE FROM users")
     yield
 

@@ -232,6 +232,196 @@
         }
         .source-icon { font-size: 0.85rem; color: var(--gray); }
 
+        /* ── READER FEEDBACK & SENTIMENT SECTION ── */
+        .roundup-feedback-section {
+            margin-top: 32px; padding-top: 28px;
+            border-top: 1px solid var(--border);
+            display: flex; flex-direction: column; gap: 20px;
+        }
+        .feedback-section-title {
+            font-size: 0.76rem; font-weight: 800; text-transform: uppercase;
+            letter-spacing: 1.2px; color: var(--gray);
+        }
+        .roundup-sentiment-card {
+            background: var(--light); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 22px 24px;
+            display: flex; flex-direction: column; gap: 16px;
+            box-shadow: 0 4px 16px var(--shadow);
+        }
+        .sentiment-header-row {
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 12px;
+        }
+        .sentiment-score-title {
+            font-family: var(--headline-font); font-size: 1.6rem;
+            font-weight: 800; line-height: 1.1; color: var(--fg);
+        }
+        .sentiment-score-title .pos-num { color: #10b981; }
+        body[data-theme="pitch-black"] .sentiment-score-title .pos-num { color: #34d399; }
+        .sentiment-sub-info {
+            font-size: 0.76rem; font-weight: 600; color: var(--gray); margin-top: 4px;
+        }
+        .sentiment-status-pill {
+            font-size: 0.72rem; font-weight: 800; text-transform: uppercase;
+            letter-spacing: 0.8px; padding: 5px 12px; border-radius: 20px;
+            background: var(--tag-bg); color: var(--tag-fg);
+        }
+        .roundup-meter-track {
+            width: 100%; height: 12px; border-radius: 6px;
+            background: rgba(0,0,0,0.12); display: flex; overflow: hidden;
+        }
+        body[data-theme="pitch-black"] .roundup-meter-track {
+            background: rgba(255,255,255,0.15);
+        }
+        .roundup-bar-fill-pos {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #059669);
+            transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .roundup-bar-fill-neg {
+            height: 100%;
+            background: linear-gradient(90deg, #f43f5e, #e11d48);
+            transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        body[data-theme="pitch-black"] .roundup-bar-fill-pos {
+            background: linear-gradient(90deg, #34d399, #10b981);
+        }
+        body[data-theme="pitch-black"] .roundup-bar-fill-neg {
+            background: linear-gradient(90deg, #fb7185, #f43f5e);
+        }
+
+        .roundup-stats-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 12px; border-top: 1px solid var(--border); padding-top: 14px;
+        }
+        .sentiment-stat-item {
+            display: flex; flex-direction: column; gap: 3px;
+        }
+        .stat-lbl {
+            font-size: 0.64rem; font-weight: 800; text-transform: uppercase;
+            letter-spacing: 0.8px; color: var(--gray);
+        }
+        .stat-val {
+            font-size: 1.1rem; font-weight: 800; font-family: var(--headline-font); color: var(--fg);
+        }
+        .stat-val.pos-val { color: #10b981; }
+        .stat-val.neg-val { color: #f43f5e; }
+        body[data-theme="pitch-black"] .stat-val.pos-val { color: #34d399; }
+        body[data-theme="pitch-black"] .stat-val.neg-val { color: #fb7185; }
+
+        /* Comment Form Box */
+        .roundup-comment-form-box {
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 18px 20px;
+            display: flex; flex-direction: column; gap: 12px;
+        }
+        .form-header-row {
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 10px;
+        }
+        .form-title {
+            font-size: 0.78rem; font-weight: 800; text-transform: uppercase;
+            letter-spacing: 0.6px; color: var(--fg);
+        }
+        .roundup-comment-textarea {
+            width: 100%; min-height: 80px; padding: 12px 14px;
+            background: var(--light); border: 1px solid var(--border);
+            border-radius: 6px; font-family: inherit; font-size: 0.88rem;
+            color: var(--fg); resize: vertical; outline: none;
+            transition: border-color 0.18s ease;
+        }
+        .roundup-comment-textarea:focus { border-color: var(--fg); }
+        .form-actions-row {
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 8px;
+        }
+        .form-status-msg {
+            font-size: 0.72rem; font-weight: 600; color: var(--gray);
+        }
+        .roundup-submit-btn {
+            padding: 8px 20px; font-size: 0.76rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.8px;
+            background: var(--fg); color: var(--bg); border: 1px solid var(--fg);
+            border-radius: 20px; cursor: pointer; font-family: inherit;
+            transition: all 0.18s ease;
+        }
+        .roundup-submit-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+
+        /* Filter Tabs */
+        .roundup-filter-tabs {
+            display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;
+        }
+        .roundup-filter-tab {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.6px; padding: 5px 12px; border-radius: 18px;
+            background: var(--light); border: 1px solid var(--border);
+            color: var(--gray); cursor: pointer; transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+        .roundup-filter-tab:hover { color: var(--fg); border-color: var(--fg); }
+        .roundup-filter-tab.active { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+
+        /* Stream & items */
+        .roundup-comments-stream {
+            display: flex; flex-direction: column; gap: 12px;
+        }
+        .roundup-comment-card {
+            background: var(--light); border: 1px solid var(--border);
+            border-radius: 6px; padding: 14px 16px; display: flex;
+            flex-direction: column; gap: 10px; transition: border-color 0.18s ease;
+        }
+        .roundup-comment-card:hover { border-color: var(--fg); }
+        .roundup-comment-top {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        }
+        .roundup-author-wrap {
+            display: flex; align-items: center; gap: 8px;
+        }
+        .roundup-avatar {
+            width: 26px; height: 26px; border-radius: 50%;
+            background: var(--tag-bg); color: var(--tag-fg);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.70rem; font-weight: 800;
+        }
+        .roundup-author-name {
+            font-size: 0.82rem; font-weight: 700; color: var(--fg);
+        }
+        .roundup-source-pill {
+            font-size: 0.62rem; font-weight: 800; text-transform: uppercase;
+            letter-spacing: 0.6px; padding: 2px 7px; border-radius: 4px;
+            border: 1px solid var(--border); background: var(--bg); color: var(--gray);
+        }
+        .roundup-sentiment-pill {
+            font-size: 0.68rem; font-weight: 800; padding: 3px 9px;
+            border-radius: 12px;
+        }
+        .roundup-sentiment-pill.pos {
+            background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35);
+        }
+        .roundup-sentiment-pill.neg {
+            background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.35);
+        }
+        .roundup-sentiment-pill.neu {
+            background: rgba(139, 92, 246, 0.15); color: #8b5cf6; border: 1px solid rgba(139, 92, 246, 0.35);
+        }
+        .roundup-comment-text {
+            font-size: 0.88rem; line-height: 1.58; color: var(--fg);
+        }
+        .roundup-comment-bottom {
+            display: flex; align-items: center; justify-content: space-between;
+            font-size: 0.70rem; color: var(--gray);
+        }
+        .roundup-delete-btn {
+            background: none; border: none; color: var(--gray);
+            font-size: 0.68rem; font-family: inherit; font-weight: 700;
+            text-transform: uppercase; cursor: pointer; padding: 0;
+            transition: color 0.15s;
+        }
+        .roundup-delete-btn:hover { color: #f43f5e; }
+        .stream-loading {
+            font-size: 0.84rem; color: var(--gray); text-align: center; padding: 24px;
+        }
+
         /* ── FOOTER ACTIONS ── */
         .roundup-footer-actions {
             margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border);
@@ -317,6 +507,69 @@
             <div class="roundup-sources-grid" id="roundup-sources" data-testid="roundup-sources"></div>
         </section>
 
+        <!-- ── READER FEEDBACK & SENTIMENT ANALYSIS ── -->
+        <section class="roundup-feedback-section" id="roundup-feedback-section" data-testid="roundup-feedback-section" style="display:none;">
+            <div class="feedback-section-title">// READER FEEDBACK & SENTIMENT</div>
+
+            <!-- Sentiment Overview Box -->
+            <div class="roundup-sentiment-card" id="roundup-sentiment-card" data-testid="roundup-sentiment-card">
+                <div class="sentiment-header-row">
+                    <div>
+                        <div class="sentiment-score-title" id="roundup-sentiment-headline">
+                            <span id="roundup-pos-score" class="pos-num">--%</span> Positivity Index
+                        </div>
+                    </div>
+                    <div class="sentiment-status-pill" id="roundup-sentiment-pill">Analyzing...</div>
+                </div>
+
+                <!-- Big Dual Meter -->
+                <div class="roundup-meter-track">
+                    <div id="roundup-bar-pos" class="roundup-bar-fill-pos" style="width:50%;"></div>
+                    <div id="roundup-bar-neg" class="roundup-bar-fill-neg" style="width:50%;"></div>
+                </div>
+
+                <div class="roundup-stats-grid">
+                    <div class="sentiment-stat-item">
+                        <span class="stat-lbl">Positivity Rate</span>
+                        <span class="stat-val pos-val" id="stat-pos-rate">--%</span>
+                    </div>
+                    <div class="sentiment-stat-item">
+                        <span class="stat-lbl">Negativity / Critique</span>
+                        <span class="stat-val neg-val" id="stat-neg-rate">--%</span>
+                    </div>
+                    <div class="sentiment-stat-item">
+                        <span class="stat-lbl">Total Feedback</span>
+                        <span class="stat-val" id="stat-total-signals">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comment Form -->
+            <div class="roundup-comment-form-box" id="roundup-comment-form-box" data-testid="roundup-comment-form-box">
+                <div class="form-header-row">
+                    <span class="form-title">Join the Discussion & Submit Feedback</span>
+                </div>
+                <textarea id="roundup-comment-input" data-testid="roundup-comment-input" class="roundup-comment-textarea" placeholder="Share your perspective, reaction, or feedback on this story..."></textarea>
+                <div class="form-actions-row">
+                    <span id="roundup-form-status" class="form-status-msg"></span>
+                    <button type="button" id="roundup-comment-submit" data-testid="roundup-comment-submit" class="roundup-submit-btn" onclick="submitRoundupComment()">Submit Feedback</button>
+                </div>
+            </div>
+
+            <!-- Filter Tabs -->
+            <div class="roundup-filter-tabs" id="roundup-filter-tabs">
+                <button type="button" class="roundup-filter-tab active" data-filter="all">All Feedback (<span id="count-all">0</span>)</button>
+                <button type="button" class="roundup-filter-tab" data-filter="positive">Positive (<span id="count-pos">0</span>)</button>
+                <button type="button" class="roundup-filter-tab" data-filter="negative">Critical (<span id="count-neg">0</span>)</button>
+                <button type="button" class="roundup-filter-tab" data-filter="rss">RSS Articles (<span id="count-rss">0</span>)</button>
+            </div>
+
+            <!-- Comments Stream -->
+            <div class="roundup-comments-stream" id="roundup-comments-stream" data-testid="roundup-comments-stream">
+                <div class="stream-loading">Loading community perspectives...</div>
+            </div>
+        </section>
+
         <footer class="roundup-footer-actions">
             <a href="/" class="action-btn">← Back to Feed</a>
             <div style="display:flex; gap:8px;">
@@ -331,6 +584,11 @@
         window.CURRENT_USER = {{ user['username']|tojson if user else 'null' }};
         window.INITIAL_ROUNDUP_DATA = {{ initial_roundup_json|tojson if initial_roundup_json else 'null' }};
 
+        var currentRoundupComments = [];
+        var currentRoundupFilter = 'all';
+        var currentRoundupTitle = '';
+        var currentRoundupUrl = '';
+
         function formatSource(art) {
             if (art.source) return art.source;
             try {
@@ -342,9 +600,33 @@
         }
 
         function calculateReadingTime(text) {
-            const wordCount = (text || '').trim().split(/\s+/).length;
-            const minutes = Math.max(1, Math.ceil(wordCount / 180));
+            if (!text) return '1 min read';
+            const words = text.trim().split(/\s+/).length;
+            const minutes = Math.max(1, Math.ceil(words / 200));
             return `${minutes} min read`;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text || '';
+            return div.innerHTML;
+        }
+
+        function timeAgo(dateStr) {
+            if (!dateStr) return 'Recently';
+            try {
+                const dt = new Date(dateStr.includes('T') ? dateStr : dateStr.replace(' ', 'T') + 'Z');
+                const now = new Date();
+                const sec = Math.floor((now - dt) / 1000);
+                if (isNaN(sec)) return dateStr;
+                if (sec < 60) return 'Just now';
+                if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
+                if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
+                if (sec < 604800) return `${Math.floor(sec / 86400)}d ago`;
+                return dt.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+            } catch (e) {
+                return 'Recently';
+            }
         }
 
         function getFallbackImage(title) {
@@ -374,11 +656,11 @@
             const sourcesSection = document.getElementById('roundup-sources-section');
             const sourcesGrid = document.getElementById('roundup-sources');
             const loadingEl = document.getElementById('roundup-loading');
-            const readingTimeEl = document.getElementById('meta-reading-time');
-            const sourcesCountEl = document.getElementById('meta-sources-count');
-            const dateEl = document.getElementById('meta-date');
+            const feedbackSection = document.getElementById('roundup-feedback-section');
 
-            const title = data.cluster_title || (data.articles && data.articles[0] && data.articles[0].title) || data.title || 'News Roundup';
+            const title = data.cluster_title || (data.articles && data.articles[0] ? data.articles[0].title : '') || 'News Roundup';
+            currentRoundupTitle = title;
+            currentRoundupUrl = (data.articles && data.articles[0] ? data.articles[0].url : '');
             headlineEl.textContent = title;
             document.title = `${title} · Lacuna`;
 
@@ -405,10 +687,10 @@
             articleEl.style.display = 'flex';
 
             // Reading time & metadata
-            readingTimeEl.textContent = calculateReadingTime(articleText);
+            document.getElementById('meta-reading-time').textContent = calculateReadingTime(articleText);
             const articles = data.articles || [];
             if (articles.length > 0) {
-                sourcesCountEl.textContent = `${articles.length} Source${articles.length > 1 ? 's' : ''}`;
+                document.getElementById('meta-sources-count').textContent = `${articles.length} Source${articles.length > 1 ? 's' : ''}`;
             }
 
             // Sources list
@@ -440,7 +722,188 @@
                 sourcesSection.style.display = 'block';
             }
 
+            // Render & display Reader Feedback section
+            if (feedbackSection) {
+                feedbackSection.style.display = 'flex';
+                if (data.sentiment) {
+                    updateRoundupSentimentDashboard(data.sentiment);
+                }
+                loadRoundupComments(title, articles);
+            }
+
             loadingEl.style.display = 'none';
+        }
+
+        function updateRoundupSentimentDashboard(sentiment) {
+            if (!sentiment) return;
+            const pos = Math.max(2, Math.min(98, sentiment.positivity_pct != null ? sentiment.positivity_pct : 50));
+            const neg = 100 - pos;
+            const total = sentiment.total_comments || 0;
+
+            const headlineScore = document.getElementById('roundup-pos-score');
+            const statusPill = document.getElementById('roundup-sentiment-pill');
+            const barPos = document.getElementById('roundup-bar-pos');
+            const barNeg = document.getElementById('roundup-bar-neg');
+            const posRate = document.getElementById('stat-pos-rate');
+            const negRate = document.getElementById('stat-neg-rate');
+            const totalSignals = document.getElementById('stat-total-signals');
+
+            if (headlineScore) headlineScore.textContent = `${pos}%`;
+            if (statusPill) statusPill.textContent = sentiment.label || 'Mixed / Balanced';
+            if (barPos) barPos.style.width = `${pos}%`;
+            if (barNeg) barNeg.style.width = `${neg}%`;
+            if (posRate) posRate.textContent = `${pos}%`;
+            if (negRate) negRate.textContent = `${neg}%`;
+            if (totalSignals) totalSignals.textContent = total;
+        }
+
+        function loadRoundupComments(title, articles) {
+            const stream = document.getElementById('roundup-comments-stream');
+            if (stream) stream.innerHTML = '<div class="stream-loading">Loading community perspectives and RSS commentary...</div>';
+
+            fetch(`/api/comments?title=${encodeURIComponent(title)}`)
+                .then(r => r.json())
+                .then(data => {
+                    currentRoundupComments = data.comments || [];
+                    if (data.sentiment) {
+                        updateRoundupSentimentDashboard(data.sentiment);
+                    }
+                    renderRoundupCommentsList();
+                })
+                .catch(() => {
+                    if (stream) stream.innerHTML = '<div class="stream-loading">No comments found yet. Be the first to share your thoughts!</div>';
+                });
+        }
+
+        function renderRoundupCommentsList() {
+            const stream = document.getElementById('roundup-comments-stream');
+            if (!stream) return;
+            stream.innerHTML = '';
+
+            // Update tab counts
+            const totalCount = currentRoundupComments.length;
+            const posCount = currentRoundupComments.filter(c => c.sentiment === 'positive').length;
+            const negCount = currentRoundupComments.filter(c => c.sentiment === 'negative').length;
+            const rssCount = currentRoundupComments.filter(c => (c.source || '').toLowerCase().includes('rss')).length;
+
+            const cAll = document.getElementById('count-all');
+            const cPos = document.getElementById('count-pos');
+            const cNeg = document.getElementById('count-neg');
+            const cRss = document.getElementById('count-rss');
+            if (cAll) cAll.textContent = totalCount;
+            if (cPos) cPos.textContent = posCount;
+            if (cNeg) cNeg.textContent = negCount;
+            if (cRss) cRss.textContent = rssCount;
+
+            let filtered = currentRoundupComments;
+            if (currentRoundupFilter === 'positive') {
+                filtered = currentRoundupComments.filter(c => c.sentiment === 'positive');
+            } else if (currentRoundupFilter === 'negative') {
+                filtered = currentRoundupComments.filter(c => c.sentiment === 'negative');
+            } else if (currentRoundupFilter === 'rss') {
+                filtered = currentRoundupComments.filter(c => (c.source || '').toLowerCase().includes('rss'));
+            }
+
+            if (!filtered.length) {
+                stream.innerHTML = '<div class="stream-loading">No feedback entries under this filter.</div>';
+                return;
+            }
+
+            filtered.forEach(c => {
+                const card = document.createElement('div');
+                card.className = 'roundup-comment-card';
+                card.dataset.testid = 'roundup-comment-card';
+
+                const isPos = c.sentiment === 'positive';
+                const isNeg = c.sentiment === 'negative';
+                const badgeClass = isPos ? 'pos' : (isNeg ? 'neg' : 'neu');
+                const scoreLabel = `${c.positivity_pct}% Pos`;
+                const isRss = (c.source || '').toLowerCase().includes('rss');
+                const authorName = c.author_name || 'Community Reader';
+                const authorInitial = (authorName || 'U').slice(0, 1).toUpperCase();
+
+                card.innerHTML = `
+                    <div class="roundup-comment-top">
+                        <div class="roundup-author-wrap">
+                            <span class="roundup-avatar">${authorInitial}</span>
+                            <span class="roundup-author-name">${escapeHtml(authorName)}</span>
+                            <span class="roundup-source-pill">${isRss ? escapeHtml(c.source) : 'Verified Reader'}</span>
+                        </div>
+                        <span class="roundup-sentiment-pill ${badgeClass}">${scoreLabel}</span>
+                    </div>
+                    <div class="roundup-comment-text">${escapeHtml(c.content)}</div>
+                    <div class="roundup-comment-bottom">
+                        <span>${timeAgo(c.created_at)}</span>
+                        ${c.user_id && window.CURRENT_USER ? `<button type="button" class="roundup-delete-btn" onclick="deleteRoundupComment(${c.id})">Delete</button>` : ''}
+                    </div>
+                `;
+                stream.appendChild(card);
+            });
+        }
+
+        function submitRoundupComment() {
+            const input = document.getElementById('roundup-comment-input');
+            const statusEl = document.getElementById('roundup-form-status');
+            const submitBtn = document.getElementById('roundup-comment-submit');
+            const content = input ? input.value.trim() : '';
+
+            if (!content) {
+                if (statusEl) statusEl.textContent = 'Please enter your perspective or feedback.';
+                return;
+            }
+
+            if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Analyzing...'; }
+            if (statusEl) statusEl.textContent = 'Analyzing sentiment & posting...';
+
+            fetch('/api/comments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: currentRoundupTitle,
+                    content: content,
+                    article_url: currentRoundupUrl
+                })
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Feedback'; }
+                if (res.error) {
+                    if (statusEl) statusEl.textContent = res.error;
+                    return;
+                }
+                if (input) input.value = '';
+                if (statusEl) statusEl.textContent = 'Feedback posted successfully!';
+                setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
+
+                if (res.comment) {
+                    currentRoundupComments.unshift(res.comment);
+                }
+                if (res.sentiment) {
+                    updateRoundupSentimentDashboard(res.sentiment);
+                }
+                renderRoundupCommentsList();
+            })
+            .catch(() => {
+                if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Feedback'; }
+                if (statusEl) statusEl.textContent = 'Failed to submit feedback.';
+            });
+        }
+
+        function deleteRoundupComment(id) {
+            if (!confirm('Delete this comment?')) return;
+            fetch(`/api/comments/${id}`, { method: 'DELETE' })
+                .then(r => r.json())
+                .then(() => {
+                    currentRoundupComments = currentRoundupComments.filter(c => c.id !== id);
+                    renderRoundupCommentsList();
+                    fetch(`/api/comments?title=${encodeURIComponent(currentRoundupTitle)}`)
+                        .then(r => r.json())
+                        .then(d => {
+                            if (d.sentiment) {
+                                updateRoundupSentimentDashboard(d.sentiment);
+                            }
+                        });
+                });
         }
 
         function loadRoundup() {
@@ -548,7 +1011,19 @@
             .catch(err => console.error("Error toggling bookmark", err));
         }
 
-        document.addEventListener('DOMContentLoaded', loadRoundup);
+        document.addEventListener('DOMContentLoaded', () => {
+            // Filter tabs
+            document.querySelectorAll('#roundup-filter-tabs .roundup-filter-tab').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('#roundup-filter-tabs .roundup-filter-tab').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentRoundupFilter = btn.dataset.filter || 'all';
+                    renderRoundupCommentsList();
+                });
+            });
+
+            loadRoundup();
+        });
     </script>
 </body>
 </html>

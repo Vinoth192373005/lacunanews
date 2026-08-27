@@ -325,7 +325,15 @@ function clearReadingHistory() {
             body.appendChild(sum);
         }
 
-        body.appendChild(buildHeroSourcesMenu(articles));
+        const actionRow = document.createElement('div');
+        actionRow.className = 'hero-action-row';
+        actionRow.style.display = 'flex';
+        actionRow.style.alignItems = 'center';
+        actionRow.style.gap = '10px';
+        actionRow.style.flexWrap = 'wrap';
+        actionRow.appendChild(buildHeroSourcesMenu(articles));
+        actionRow.appendChild(buildSentimentBadge(nd));
+        body.appendChild(actionRow);
 
         const related = articles
             .slice(1)
@@ -391,7 +399,16 @@ function clearReadingHistory() {
             body.appendChild(sum);
         }
 
-        body.appendChild(buildHeroSourcesMenu(articles));
+        const actionRow = document.createElement('div');
+        actionRow.className = 'hero-action-row';
+        actionRow.style.display = 'flex';
+        actionRow.style.alignItems = 'center';
+        actionRow.style.gap = '8px';
+        actionRow.style.flexWrap = 'wrap';
+        actionRow.style.marginTop = 'auto';
+        actionRow.appendChild(buildHeroSourcesMenu(articles));
+        actionRow.appendChild(buildSentimentBadge(nd));
+        body.appendChild(actionRow);
 
         el.appendChild(body);
         return el;
@@ -432,6 +449,65 @@ function clearReadingHistory() {
 
         wrap.appendChild(btn);
         wrap.appendChild(panel);
+        return wrap;
+    }
+
+    function buildSentimentBadge(nd) {
+        const s = nd.sentiment || {
+            positivity_pct: 50,
+            negativity_pct: 50,
+            total_comments: 0,
+            label: 'Mixed / Balanced',
+            sentiment: 'neutral'
+        };
+
+        const title = nd.cluster_title || (nd.articles && nd.articles[0] ? nd.articles[0].title : '');
+        const wrap = document.createElement('div');
+        wrap.className = 'story-sentiment-badge';
+        wrap.dataset.testid = 'story-sentiment-badge';
+        wrap.setAttribute('data-cluster-title', title);
+        wrap.title = `Semantic Sentiment: ${s.positivity_pct}% Positive · ${s.negativity_pct}% Negative (${s.total_comments || 0} feedback comments)`;
+
+        const pos = Math.max(2, Math.min(98, s.positivity_pct != null ? s.positivity_pct : 50));
+        const neg = 100 - pos;
+        const count = s.total_comments || 0;
+
+        wrap.innerHTML = `
+            <div class="sentiment-indicator-main">
+                <span class="sentiment-pill-tag pos-tag" data-testid="sentiment-pos-tag">
+                    <span class="sentiment-dot pos-dot"></span>
+                    <span class="sentiment-val">${pos}%</span>
+                    <span class="sentiment-lbl">Pos</span>
+                </span>
+                <span class="sentiment-split-bar">
+                    <span class="split-pos" style="width:${pos}%;"></span>
+                    <span class="split-neg" style="width:${neg}%;"></span>
+                </span>
+                <span class="sentiment-pill-tag neg-tag" data-testid="sentiment-neg-tag">
+                    <span class="sentiment-dot neg-dot"></span>
+                    <span class="sentiment-val">${neg}%</span>
+                    <span class="sentiment-lbl">Neg</span>
+                </span>
+            </div>
+            <button type="button" class="sentiment-comments-btn" data-testid="sentiment-comments-btn" title="View feedback & comments">
+                <span class="comment-icon">💬</span>
+                <span class="comment-count">${count}</span>
+            </button>
+        `;
+
+        wrap.addEventListener('click', e => {
+            e.stopPropagation();
+            openFeedbackModal(nd);
+        });
+
+        const commentBtn = wrap.querySelector('.sentiment-comments-btn');
+        if (commentBtn) {
+            commentBtn.addEventListener('click', e => {
+                e.stopPropagation();
+                openFeedbackModal(nd);
+            });
+        }
+
         return wrap;
     }
 
@@ -487,6 +563,7 @@ function clearReadingHistory() {
         panel.addEventListener('click', e => e.stopPropagation());
 
         metaCol.appendChild(btn);
+        metaCol.appendChild(buildSentimentBadge(nd));
         card.appendChild(metaCol);
         card.appendChild(panel);
 
@@ -645,20 +722,285 @@ function clearReadingHistory() {
         });
     });
 
-    const searchInput = document.getElementById('search-input');
-    if (searchInput) {
-        searchInput.addEventListener('keypress', e => { if (e.key === 'Enter') triggerSearch(); });
+    let currentModalRoundup = null;
+    let currentModalComments = [];
+    let currentModalFilter = 'all';
+    let currentModalRating = 3;
+
+    function timeAgo(dateStr) {
+        if (!dateStr) return 'Recently';
+        try {
+            const dt = new Date(dateStr.includes('T') ? dateStr : dateStr.replace(' ', 'T') + 'Z');
+            const now = new Date();
+            const sec = Math.floor((now - dt) / 1000);
+            if (isNaN(sec)) return formatDate(dateStr);
+            if (sec < 60) return 'Just now';
+            if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
+            if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
+            if (sec < 604800) return `${Math.floor(sec / 86400)}d ago`;
+            return formatDate(dateStr);
+        } catch (e) {
+            return formatDate(dateStr) || 'Recently';
+        }
     }
 
-    window.addEventListener('storage', e => {
-        if (e.key === 'lacuna_region' || e.key === 'newsRegion') {
-            const next = (e.newValue || 'US').toUpperCase();
-            if (next && next !== currentRegion) {
-                currentRegion = next;
-                buildRegionGrid();
-                loadQuery(currentQuery, currentCategoryName);
-            }
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text || '';
+        return div.innerHTML;
+    }
+
+    function openFeedbackModal(nd) {
+        currentModalRoundup = nd;
+        currentModalFilter = 'all';
+
+        const title = nd.cluster_title || (nd.articles && nd.articles[0] ? nd.articles[0].title : 'Story');
+        const backdrop = document.getElementById('feedback-modal-backdrop');
+        const headlineEl = document.getElementById('feedback-modal-headline');
+        const roundupLink = document.getElementById('modal-roundup-link');
+        const textarea = document.getElementById('modal-feedback-input');
+        const statusEl = document.getElementById('modal-form-status');
+
+        if (!backdrop) return;
+
+        if (headlineEl) headlineEl.textContent = title;
+        if (textarea) textarea.value = '';
+        if (statusEl) statusEl.textContent = '';
+        if (roundupLink) {
+            roundupLink.onclick = (e) => {
+                e.preventDefault();
+                closeFeedbackModal();
+                openReader(nd);
+            };
         }
+
+        // Reset filter tabs
+        document.querySelectorAll('#modal-filter-tabs .filter-tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.filter === 'all');
+        });
+
+        // Set initial sentiment from nd.sentiment
+        updateModalDashboard(nd.sentiment || { positivity_pct: 50, negativity_pct: 50, total_comments: 0, label: 'Mixed / Balanced' });
+
+        backdrop.classList.add('open');
+        document.body.style.overflow = 'hidden';
+
+        loadModalComments(title);
+    }
+
+    function closeFeedbackModal() {
+        const backdrop = document.getElementById('feedback-modal-backdrop');
+        if (backdrop) backdrop.classList.remove('open');
+        document.body.style.overflow = '';
+        currentModalRoundup = null;
+    }
+
+    function updateModalDashboard(sentiment) {
+        if (!sentiment) return;
+        const pos = Math.max(2, Math.min(98, sentiment.positivity_pct != null ? sentiment.positivity_pct : 50));
+        const neg = 100 - pos;
+        const total = sentiment.total_comments || 0;
+
+        const posEl = document.getElementById('modal-pos-pct');
+        const negEl = document.getElementById('modal-neg-pct');
+        const labelEl = document.getElementById('modal-sentiment-label');
+        const barPos = document.getElementById('modal-bar-pos');
+        const barNeg = document.getElementById('modal-bar-neg');
+        const totalEl = document.getElementById('modal-total-signals');
+
+        if (posEl) posEl.textContent = `${pos}% Pos`;
+        if (negEl) negEl.textContent = `${neg}% Neg`;
+        if (labelEl) labelEl.textContent = sentiment.label || 'Mixed / Balanced';
+        if (barPos) barPos.style.width = `${pos}%`;
+        if (barNeg) barNeg.style.width = `${neg}%`;
+        if (totalEl) totalEl.textContent = `${total} total feedback comment${total === 1 ? '' : 's'}`;
+    }
+
+    function loadModalComments(title) {
+        const listEl = document.getElementById('modal-comments-list');
+        if (listEl) listEl.innerHTML = '<div style="font-size:0.8rem; color:var(--gray); text-align:center; padding:16px;">Loading feedback & RSS commentary...</div>';
+
+        fetch(`/api/comments?title=${encodeURIComponent(title)}`)
+            .then(r => r.json())
+            .then(data => {
+                currentModalComments = data.comments || [];
+                if (data.sentiment) {
+                    updateModalDashboard(data.sentiment);
+                    updateHomefeedCardSentiment(title, data.sentiment);
+                }
+                renderModalCommentsList();
+            })
+            .catch(() => {
+                if (listEl) listEl.innerHTML = '<div style="font-size:0.8rem; color:var(--gray); text-align:center; padding:16px;">No feedback comments found. Be the first to post!</div>';
+            });
+    }
+
+    function renderModalCommentsList() {
+        const listEl = document.getElementById('modal-comments-list');
+        if (!listEl) return;
+        listEl.innerHTML = '';
+
+        let filtered = currentModalComments;
+        if (currentModalFilter === 'positive') {
+            filtered = currentModalComments.filter(c => c.sentiment === 'positive');
+        } else if (currentModalFilter === 'negative') {
+            filtered = currentModalComments.filter(c => c.sentiment === 'negative');
+        } else if (currentModalFilter === 'rss') {
+            filtered = currentModalComments.filter(c => (c.source || '').toLowerCase().includes('rss'));
+        }
+
+        if (!filtered.length) {
+            listEl.innerHTML = '<div style="font-size:0.82rem; color:var(--gray); text-align:center; padding:20px;">No comments matching this filter.</div>';
+            return;
+        }
+
+        filtered.forEach(c => {
+            const card = document.createElement('div');
+            card.className = 'feedback-comment-item';
+            card.dataset.testid = 'feedback-comment-item';
+
+            const isPos = c.sentiment === 'positive';
+            const isNeg = c.sentiment === 'negative';
+            const badgeClass = isPos ? 'pos' : (isNeg ? 'neg' : 'neu');
+            const scoreLabel = `${c.positivity_pct}% Pos`;
+            const isRss = (c.source || '').toLowerCase().includes('rss');
+            const authorName = c.author_name || 'Community Reader';
+            const authorInitial = (authorName || 'U').slice(0, 1).toUpperCase();
+
+            card.innerHTML = `
+                <div class="comment-header-row">
+                    <div class="comment-author-info">
+                        <span class="comment-avatar">${authorInitial}</span>
+                        <span class="comment-author-name">${escapeHtml(authorName)}</span>
+                        <span class="comment-source-pill">${isRss ? escapeHtml(c.source) : 'Verified Reader'}</span>
+                    </div>
+                    <span class="comment-sentiment-badge ${badgeClass}">${scoreLabel}</span>
+                </div>
+                <div class="comment-body-text">${escapeHtml(c.content)}</div>
+                <div class="comment-footer-row">
+                    <span>${timeAgo(c.created_at)}</span>
+                    ${c.user_id && window.CURRENT_USER ? `<button type="button" class="comment-delete-btn" onclick="deleteModalComment(${c.id})">Delete</button>` : ''}
+                </div>
+            `;
+            listEl.appendChild(card);
+        });
+    }
+
+    function submitModalFeedback() {
+        if (!currentModalRoundup) return;
+        const title = currentModalRoundup.cluster_title || (currentModalRoundup.articles && currentModalRoundup.articles[0] ? currentModalRoundup.articles[0].title : '');
+        const input = document.getElementById('modal-feedback-input');
+        const statusEl = document.getElementById('modal-form-status');
+        const submitBtn = document.getElementById('modal-feedback-submit');
+        const content = input ? input.value.trim() : '';
+
+        if (!content) {
+            if (statusEl) statusEl.textContent = 'Please enter your feedback text.';
+            return;
+        }
+
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Analyzing...'; }
+        if (statusEl) statusEl.textContent = 'Analyzing sentiment & posting...';
+
+        fetch('/api/comments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title: title,
+                content: content,
+                article_url: (currentModalRoundup.articles && currentModalRoundup.articles[0] ? currentModalRoundup.articles[0].url : '')
+            })
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Post Feedback'; }
+            if (res.error) {
+                if (statusEl) statusEl.textContent = res.error;
+                return;
+            }
+            if (input) input.value = '';
+            if (statusEl) statusEl.textContent = 'Feedback posted successfully!';
+            setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
+
+            if (res.comment) {
+                currentModalComments.unshift(res.comment);
+            }
+            if (res.sentiment) {
+                updateModalDashboard(res.sentiment);
+                updateHomefeedCardSentiment(title, res.sentiment);
+            }
+            renderModalCommentsList();
+        })
+        .catch(() => {
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Post Feedback'; }
+            if (statusEl) statusEl.textContent = 'Failed to submit feedback.';
+        });
+    }
+
+    function deleteModalComment(id) {
+        if (!confirm('Delete this comment?')) return;
+        fetch(`/api/comments/${id}`, { method: 'DELETE' })
+            .then(r => r.json())
+            .then(() => {
+                currentModalComments = currentModalComments.filter(c => c.id !== id);
+                renderModalCommentsList();
+                if (currentModalRoundup) {
+                    const title = currentModalRoundup.cluster_title || '';
+                    fetch(`/api/comments?title=${encodeURIComponent(title)}`)
+                        .then(r => r.json())
+                        .then(d => {
+                            if (d.sentiment) {
+                                updateModalDashboard(d.sentiment);
+                                updateHomefeedCardSentiment(title, d.sentiment);
+                            }
+                        });
+                }
+            });
+    }
+
+    function updateHomefeedCardSentiment(title, sentiment) {
+        if (!title || !sentiment) return;
+        document.querySelectorAll(`.story-sentiment-badge[data-cluster-title="${title}"]`).forEach(badge => {
+            const pos = Math.max(2, Math.min(98, sentiment.positivity_pct != null ? sentiment.positivity_pct : 50));
+            const neg = 100 - pos;
+            const count = sentiment.total_comments || 0;
+
+            const posTag = badge.querySelector('.pos-tag .sentiment-val');
+            const negTag = badge.querySelector('.neg-tag .sentiment-val');
+            const splitPos = badge.querySelector('.split-pos');
+            const splitNeg = badge.querySelector('.split-neg');
+            const countEl = badge.querySelector('.comment-count');
+
+            if (posTag) posTag.textContent = `${pos}%`;
+            if (negTag) negTag.textContent = `${neg}%`;
+            if (splitPos) splitPos.style.width = `${pos}%`;
+            if (splitNeg) splitNeg.style.width = `${neg}%`;
+            if (countEl) countEl.textContent = count;
+        });
+    }
+
+    window.submitModalFeedback = submitModalFeedback;
+    window.deleteModalComment = deleteModalComment;
+
+    // Modal listeners
+    const closeBtn = document.getElementById('feedback-modal-close');
+    const backdrop = document.getElementById('feedback-modal-backdrop');
+    if (closeBtn) closeBtn.addEventListener('click', closeFeedbackModal);
+    if (backdrop) {
+        backdrop.addEventListener('click', e => {
+            if (e.target === backdrop) closeFeedbackModal();
+        });
+    }
+    document.querySelectorAll('#modal-filter-tabs .filter-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('#modal-filter-tabs .filter-tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentModalFilter = btn.dataset.filter || 'all';
+            renderModalCommentsList();
+        });
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeFeedbackModal();
     });
 
     applyTheme(currentTheme);

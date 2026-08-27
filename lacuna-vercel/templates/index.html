@@ -485,29 +485,274 @@
         .more-label { grid-column: 1 / -1; }
         @media(max-width:600px) { .cr-img-col { min-height: 200px; } }
 
-        /* ── READER MODAL ── */
-        .reader-backdrop {
-            display: none; position: fixed; inset: 0; z-index: 500;
-            background: rgba(0,0,0,0.52);
+        /* ── SENTIMENT BADGE & METER (CARD LEVEL) ── */
+        .story-sentiment-badge {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: var(--light); border: 1px solid var(--border);
+            border-radius: 20px; padding: 3px 9px 3px 7px;
+            font-size: 0.70rem; font-weight: 700; letter-spacing: 0.4px;
+            color: var(--fg); cursor: pointer; transition: all 0.18s ease;
+            user-select: none; width: fit-content; max-width: 100%;
         }
-        .reader-backdrop.open { display: block; }
-        .reader-modal {
-            position: fixed; top: 5vh; left: 50%; transform: translateX(-50%);
-            width: min(760px, 94vw); max-height: 88vh;
+        .story-sentiment-badge:hover {
+            border-color: var(--fg); transform: translateY(-1px);
+            box-shadow: 0 4px 12px var(--shadow); background: var(--bg);
+        }
+        .sentiment-indicator-main {
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .sentiment-pill-tag {
+            display: inline-flex; align-items: center; gap: 4px;
+            font-size: 0.68rem; font-weight: 800;
+        }
+        .pos-tag { color: #10b981; }
+        .neg-tag { color: #f43f5e; }
+        body[data-theme="pitch-black"] .pos-tag { color: #34d399; }
+        body[data-theme="pitch-black"] .neg-tag { color: #fb7185; }
+        body[data-theme="palette-one"] .pos-tag { color: #2d8a68; }
+        body[data-theme="palette-one"] .neg-tag { color: #c44343; }
+        body[data-theme="palette-two"] .pos-tag { color: #1b8a5a; }
+        body[data-theme="palette-two"] .neg-tag { color: #b91c1c; }
+        body[data-theme="palette-three"] .pos-tag { color: #348e58; }
+        body[data-theme="palette-three"] .neg-tag { color: #c2410c; }
+
+        .sentiment-dot {
+            width: 6px; height: 6px; border-radius: 50%; display: inline-block;
+        }
+        .pos-dot { background: #10b981; }
+        .neg-dot { background: #f43f5e; }
+        body[data-theme="pitch-black"] .pos-dot { background: #34d399; }
+        body[data-theme="pitch-black"] .neg-dot { background: #fb7185; }
+
+        .sentiment-split-bar {
+            width: 48px; height: 6px; border-radius: 3px;
+            background: rgba(0,0,0,0.12); display: flex; overflow: hidden;
+        }
+        body[data-theme="pitch-black"] .sentiment-split-bar {
+            background: rgba(255,255,255,0.18);
+        }
+        .split-pos {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #059669);
+            transition: width 0.4s ease;
+        }
+        .split-neg {
+            height: 100%;
+            background: linear-gradient(90deg, #f43f5e, #e11d48);
+            transition: width 0.4s ease;
+        }
+        body[data-theme="pitch-black"] .split-pos {
+            background: linear-gradient(90deg, #34d399, #10b981);
+        }
+        body[data-theme="pitch-black"] .split-neg {
+            background: linear-gradient(90deg, #fb7185, #f43f5e);
+        }
+
+        .sentiment-comments-btn {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: transparent; border: none; color: var(--gray);
+            font-size: 0.68rem; font-family: inherit; font-weight: 700;
+            cursor: pointer; border-left: 1px solid var(--border);
+            padding-left: 7px;
+        }
+        .sentiment-comments-btn:hover { color: var(--fg); }
+
+        /* ── QUICK FEEDBACK MODAL ── */
+        .feedback-modal-backdrop {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+            z-index: 600; align-items: center; justify-content: center;
+            padding: 16px;
+        }
+        .feedback-modal-backdrop.open { display: flex; }
+        .feedback-modal-card {
+            width: min(740px, 95vw); max-height: 88vh;
             background: var(--bg); border: 1px solid var(--border);
-            display: flex; flex-direction: column; z-index: 501; overflow: hidden;
+            border-radius: var(--radius); display: flex; flex-direction: column;
+            box-shadow: 0 24px 64px var(--shadow); overflow: hidden;
+            animation: modal-pop 0.22s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .reader-topbar {
+        @keyframes modal-pop {
+            0% { opacity: 0; transform: scale(0.96) translateY(10px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .feedback-modal-header {
+            display: flex; align-items: flex-start; justify-content: space-between;
+            padding: 18px 22px 14px; border-bottom: 1px solid var(--border);
+            background: var(--light); gap: 12px;
+        }
+        .feedback-modal-title-box { display: flex; flex-direction: column; gap: 4px; }
+        .feedback-modal-tag {
+            font-size: 0.62rem; font-weight: 800; text-transform: uppercase;
+            letter-spacing: 1.5px; color: var(--gray);
+        }
+        .feedback-modal-headline {
+            font-family: var(--headline-font); font-size: 1.35rem;
+            font-weight: 700; line-height: 1.22; color: var(--fg);
+        }
+        .feedback-modal-close {
+            font-size: 1.4rem; line-height: 1; background: none; border: none;
+            cursor: pointer; color: var(--gray); padding: 4px 6px; border-radius: 4px;
+            transition: color 0.15s, background 0.15s;
+        }
+        .feedback-modal-close:hover { color: var(--fg); background: var(--bg); }
+
+        .feedback-modal-body {
+            padding: 20px 22px; overflow-y: auto; display: flex;
+            flex-direction: column; gap: 20px;
+        }
+
+        /* Sentiment summary gauge inside modal */
+        .feedback-sentiment-dashboard {
+            background: var(--light); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 16px 18px;
+            display: flex; flex-direction: column; gap: 12px;
+        }
+        .dashboard-top-row {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 13px 24px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+            flex-wrap: wrap; gap: 8px;
         }
-        .reader-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 2px; color: var(--gray); }
-        .reader-close {
-            font-size: 1.3rem; line-height: 1; background: none; border: none;
-            cursor: pointer; color: var(--gray); padding: 0; transition: color 0.15s;
+        .dashboard-score-main {
+            font-size: 1.5rem; font-weight: 800; font-family: var(--headline-font);
+            display: flex; align-items: baseline; gap: 6px;
         }
-        .reader-close:hover { color: var(--fg); }
-        .reader-hero {
+        .dashboard-label-badge {
+            font-size: 0.70rem; font-weight: 800; text-transform: uppercase;
+            letter-spacing: 0.8px; padding: 4px 10px; border-radius: 20px;
+            background: var(--tag-bg); color: var(--tag-fg);
+        }
+        .dashboard-meter-bar {
+            width: 100%; height: 10px; border-radius: 5px;
+            background: rgba(0,0,0,0.12); display: flex; overflow: hidden;
+        }
+        body[data-theme="pitch-black"] .dashboard-meter-bar {
+            background: rgba(255,255,255,0.15);
+        }
+        .dashboard-meta-row {
+            display: flex; align-items: center; justify-content: space-between;
+            font-size: 0.76rem; font-weight: 700; color: var(--gray);
+            flex-wrap: wrap; gap: 8px;
+        }
+
+        /* Feedback form */
+        .feedback-form-card {
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 14px 16px;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        .feedback-form-header {
+            display: flex; align-items: center; justify-content: space-between;
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.8px; color: var(--gray);
+        }
+        .feedback-textarea {
+            width: 100%; min-height: 70px; padding: 10px 12px;
+            background: var(--light); border: 1px solid var(--border);
+            border-radius: 6px; font-family: inherit; font-size: 0.85rem;
+            color: var(--fg); resize: vertical; outline: none;
+            transition: border-color 0.18s ease;
+        }
+        .feedback-textarea:focus {
+            border-color: var(--fg);
+        }
+        .feedback-submit-row {
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .feedback-submit-btn {
+            padding: 6px 16px; font-size: 0.76rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.8px;
+            background: var(--fg); color: var(--bg); border: 1px solid var(--fg);
+            border-radius: 20px; cursor: pointer; font-family: inherit;
+            transition: all 0.18s ease;
+        }
+        .feedback-submit-btn:hover {
+            opacity: 0.88; transform: translateY(-1px);
+        }
+
+        /* Filter tabs & comments list */
+        .feedback-filter-tabs {
+            display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px;
+        }
+        .filter-tab-btn {
+            font-size: 0.70rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.6px; padding: 4px 10px; border-radius: 16px;
+            background: var(--light); border: 1px solid var(--border);
+            color: var(--gray); cursor: pointer; transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+        .filter-tab-btn:hover { color: var(--fg); border-color: var(--fg); }
+        .filter-tab-btn.active { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+
+        .feedback-comments-list {
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        .feedback-comment-item {
+            background: var(--light); border: 1px solid var(--border);
+            border-radius: 6px; padding: 12px 14px; display: flex;
+            flex-direction: column; gap: 8px; transition: border-color 0.15s ease;
+        }
+        .feedback-comment-item:hover { border-color: var(--fg); }
+        .comment-header-row {
+            display: flex; align-items: center; justify-content: space-between; gap: 8px;
+        }
+        .comment-author-info {
+            display: flex; align-items: center; gap: 7px;
+        }
+        .comment-avatar {
+            width: 22px; height: 22px; border-radius: 50%;
+            background: var(--tag-bg); color: var(--tag-fg);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.62rem; font-weight: 800;
+        }
+        .comment-author-name {
+            font-size: 0.78rem; font-weight: 700; color: var(--fg);
+        }
+        .comment-source-pill {
+            font-size: 0.60rem; font-weight: 800; text-transform: uppercase;
+            letter-spacing: 0.6px; padding: 2px 6px; border-radius: 3px;
+            border: 1px solid var(--border); background: var(--bg); color: var(--gray);
+        }
+        .comment-sentiment-badge {
+            font-size: 0.66rem; font-weight: 800; padding: 2px 7px;
+            border-radius: 12px;
+        }
+        .comment-sentiment-badge.pos {
+            background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35);
+        }
+        .comment-sentiment-badge.neg {
+            background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.35);
+        }
+        .comment-sentiment-badge.neu {
+            background: rgba(139, 92, 246, 0.15); color: #8b5cf6; border: 1px solid rgba(139, 92, 246, 0.35);
+        }
+        .comment-body-text {
+            font-size: 0.85rem; line-height: 1.52; color: var(--fg);
+        }
+        .comment-footer-row {
+            display: flex; align-items: center; justify-content: space-between;
+            font-size: 0.68rem; color: var(--gray);
+        }
+        .comment-delete-btn {
+            background: none; border: none; color: var(--gray);
+            font-size: 0.66rem; font-family: inherit; font-weight: 700;
+            text-transform: uppercase; cursor: pointer; padding: 0;
+            transition: color 0.15s;
+        }
+        .comment-delete-btn:hover { color: #f43f5e; }
+
+        .feedback-modal-footer {
+            padding: 12px 22px; border-top: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between;
+            background: var(--light); font-size: 0.76rem;
+        }
+        .open-roundup-link-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-weight: 700; color: var(--fg); text-decoration: none;
+            text-transform: uppercase; font-size: 0.74rem; letter-spacing: 0.5px;
+            transition: transform 0.15s ease;
+        }
+        .open-roundup-link-btn:hover { transform: translateX(3px); }
     </style>
 </head>
 <body>
@@ -547,6 +792,72 @@
     <div class="content" data-testid="main-content">
         <div id="story-feed" data-testid="story-feed">
             <div class="status blink" data-testid="feed-status">Loading...</div>
+        </div>
+    </div>
+
+    <!-- ── QUICK FEEDBACK & SENTIMENT MODAL ── -->
+    <div class="feedback-modal-backdrop" id="feedback-modal-backdrop" data-testid="feedback-modal-backdrop">
+        <div class="feedback-modal-card" id="feedback-modal-card" data-testid="feedback-modal-card">
+            <div class="feedback-modal-header">
+                <div class="feedback-modal-title-box">
+                    <span class="feedback-modal-tag">// COMMUNITY SENTIMENT & FEEDBACK</span>
+                    <h2 class="feedback-modal-headline" id="feedback-modal-headline" data-testid="feedback-modal-headline">Story Feedback</h2>
+                </div>
+                <button type="button" class="feedback-modal-close" id="feedback-modal-close" data-testid="feedback-modal-close" aria-label="Close modal">×</button>
+            </div>
+
+            <div class="feedback-modal-body">
+                <!-- Dashboard -->
+                <div class="feedback-sentiment-dashboard" id="modal-sentiment-dashboard" data-testid="modal-sentiment-dashboard">
+                    <div class="dashboard-top-row">
+                        <div class="dashboard-score-main">
+                            <span id="modal-pos-pct" style="color:#10b981;">50%</span>
+                            <span style="font-size:0.9rem; color:var(--gray);">/</span>
+                            <span id="modal-neg-pct" style="color:#f43f5e;">50%</span>
+                        </div>
+                        <span class="dashboard-label-badge" id="modal-sentiment-label">Mixed / Balanced</span>
+                    </div>
+
+                    <div class="dashboard-meter-bar">
+                        <div id="modal-bar-pos" class="split-pos" style="width:50%;"></div>
+                        <div id="modal-bar-neg" class="split-neg" style="width:50%;"></div>
+                    </div>
+
+                    <div class="dashboard-meta-row">
+                        <span id="modal-total-signals">0 total feedback comments</span>
+                    </div>
+                </div>
+
+                <!-- Input Form -->
+                <div class="feedback-form-card" data-testid="modal-feedback-form-card">
+                    <div class="feedback-form-header">
+                        <span>Leave Your Feedback</span>
+                    </div>
+                    <textarea class="feedback-textarea" id="modal-feedback-input" data-testid="modal-feedback-input" placeholder="Share your perspective or analysis on this story..."></textarea>
+                    <div class="feedback-submit-row">
+                        <span style="font-size:0.68rem; color:var(--gray);" id="modal-form-status"></span>
+                        <button type="button" class="feedback-submit-btn" id="modal-feedback-submit" data-testid="modal-feedback-submit" onclick="submitModalFeedback()">Post Feedback</button>
+                    </div>
+                </div>
+
+                <!-- Filters -->
+                <div class="feedback-filter-tabs" id="modal-filter-tabs">
+                    <button type="button" class="filter-tab-btn active" data-filter="all">All Feedback</button>
+                    <button type="button" class="filter-tab-btn" data-filter="positive">Positive</button>
+                    <button type="button" class="filter-tab-btn" data-filter="negative">Critical</button>
+                    <button type="button" class="filter-tab-btn" data-filter="rss">RSS Sourced</button>
+                </div>
+
+                <!-- List -->
+                <div class="feedback-comments-list" id="modal-comments-list" data-testid="modal-comments-list">
+                    <div style="font-size:0.8rem; color:var(--gray); text-align:center; padding:16px;">Loading feedback...</div>
+                </div>
+            </div>
+
+            <div class="feedback-modal-footer">
+                <span style="color:var(--gray);">Community Sentiment</span>
+                <a href="#" class="open-roundup-link-btn" id="modal-roundup-link" data-testid="modal-roundup-link">Open Full Roundup →</a>
+            </div>
         </div>
     </div>
 
