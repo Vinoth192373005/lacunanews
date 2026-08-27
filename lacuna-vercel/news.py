@@ -453,8 +453,9 @@ def comment_row_to_dict(row):
 class SemanticSentimentAnalyzer:
     """
     Advanced semantic sentiment analysis engine combining domain-tuned sentiment
-    valence lexicons, contextual modifier resolution (negation, intensifiers,
-    diminishers, contrastive conjunctions), emoji semantics, and TF-IDF prototype anchoring.
+    valence lexicons, morphological stemming variants, contextual modifier resolution
+    (negation, intensifiers, diminishers, contrastive conjunctions), emoji semantics,
+    and TF-IDF prototype anchoring.
     """
     POSITIVE_WORDS = {
         'breakthrough': 3.2, 'groundbreaking': 3.4, 'innovative': 2.8, 'revolutionary': 3.0,
@@ -462,47 +463,101 @@ class SemanticSentimentAnalyzer:
         'excellent': 2.8, 'great': 2.2, 'good': 1.6, 'positive': 2.0, 'promising': 2.4,
         'remarkable': 2.7, 'impressive': 2.5, 'outstanding': 3.1, 'admirable': 2.6,
         'effective': 2.0, 'efficient': 2.1, 'boost': 2.2, 'surge': 2.0, 'recovery': 2.4,
-        'progress': 2.3, 'growth': 2.2, 'success': 2.8, 'successful': 2.7, 'beneficial': 2.5,
-        'thrive': 2.6, 'love': 2.7, 'like': 1.5, 'hope': 2.0, 'optimism': 2.6, 'optimistic': 2.5,
-        'gain': 1.8, 'support': 2.0, 'agree': 1.7, 'applaud': 2.8, 'celebrate': 2.9,
+        'recover': 2.4, 'recovering': 2.4, 'progress': 2.3, 'growth': 2.2, 'grow': 2.0,
+        'success': 2.8, 'successful': 2.7, 'succeed': 2.5, 'beneficial': 2.5, 'benefit': 2.2,
+        'thrive': 2.6, 'thriving': 2.6, 'love': 2.7, 'like': 1.5, 'hope': 2.0, 'optimism': 2.6,
+        'optimistic': 2.5, 'gain': 1.8, 'gains': 2.0, 'support': 2.0, 'supported': 2.0,
+        'agree': 1.8, 'agreement': 2.2, 'agrees': 1.8, 'agreed': 1.8, 'applaud': 2.8,
+        'applauds': 2.8, 'celebrate': 2.9, 'celebrates': 2.9, 'celebration': 2.8,
         'masterpiece': 3.5, 'solid': 1.8, 'strong': 2.0, 'brilliant': 3.0, 'wonderful': 2.8,
-        'fantastic': 2.9, 'fabulous': 2.8, 'victory': 3.0, 'prosper': 2.7, 'sustainable': 2.2,
-        'praised': 2.4, 'honor': 2.3, 'award': 2.0, 'advancement': 2.5, 'visionary': 2.8,
-        'commend': 2.5, 'commendable': 2.6, 'cheer': 2.2, 'thriving': 2.5, 'stellar': 3.0,
-        'phenomenal': 3.2, 'exquisite': 2.8, 'genius': 3.0, 'fascinating': 2.4, 'delightful': 2.6,
-        'thrilling': 2.7, 'champion': 2.6, 'miracle': 3.2, 'robust': 2.2, 'resilient': 2.4,
-        'resilience': 2.4, 'harmony': 2.2, 'peaceful': 2.2, 'peace': 2.0, 'integrity': 2.5,
-        'heroic': 2.8, 'hero': 2.5, 'justice': 2.4, 'empower': 2.4, 'empowerment': 2.5,
-        'clarity': 2.0, 'wisdom': 2.5, 'dazzling': 2.7, 'valuable': 2.2, 'advantage': 2.0,
-        'favorable': 2.2, 'favor': 1.8, 'upgrade': 1.8, 'flourish': 2.5, 'flourishing': 2.5,
-        'pioneering': 2.8, 'pioneer': 2.5, 'credible': 2.0, 'trustworthy': 2.5, 'generous': 2.2,
-        'pleased': 2.0, 'pleasing': 2.0, 'enjoyable': 2.2, 'perfect': 3.0, 'worthwhile': 2.3,
-        'lucrative': 2.2, 'brilliance': 2.8, 'clean': 1.6, 'safest': 2.4, 'safe': 1.8,
+        'fantastic': 2.9, 'fabulous': 2.8, 'victory': 3.0, 'victories': 3.0, 'victorious': 3.0,
+        'prosper': 2.7, 'prosperity': 2.8, 'sustainable': 2.2, 'praise': 2.4, 'praised': 2.4,
+        'praises': 2.4, 'honor': 2.3, 'honored': 2.3, 'award': 2.2, 'awarded': 2.2,
+        'advancement': 2.5, 'advance': 2.3, 'advances': 2.3, 'visionary': 2.8, 'commend': 2.5,
+        'commendable': 2.6, 'cheer': 2.2, 'cheers': 2.2, 'stellar': 3.0, 'phenomenal': 3.2,
+        'exquisite': 2.8, 'genius': 3.0, 'fascinating': 2.4, 'delightful': 2.6, 'thrilling': 2.7,
+        'champion': 2.6, 'champions': 2.6, 'miracle': 3.2, 'robust': 2.2, 'resilient': 2.4,
+        'resilience': 2.4, 'harmony': 2.2, 'peaceful': 2.4, 'peace': 2.4, 'ceasefire': 2.6,
+        'truce': 2.4, 'treaty': 2.4, 'accord': 2.2, 'deal': 1.8, 'settle': 1.8, 'settlement': 2.0,
+        'reconcile': 2.2, 'reconciliation': 2.4, 'relief': 2.4, 'rescue': 2.6, 'rescued': 2.6,
+        'rescues': 2.6, 'save': 2.4, 'saved': 2.4, 'saves': 2.4, 'survive': 2.2, 'survived': 2.2,
+        'survivor': 2.2, 'survivors': 2.2, 'aid': 2.0, 'funding': 1.8, 'cure': 3.0, 'cured': 3.0,
+        'cures': 3.0, 'heal': 2.4, 'healing': 2.4, 'healed': 2.4, 'rebound': 2.2, 'rebounds': 2.2,
+        'rally': 2.2, 'rallies': 2.2, 'soar': 2.4, 'soars': 2.4, 'soaring': 2.4, 'win': 2.6,
+        'wins': 2.6, 'won': 2.6, 'safe': 2.0, 'safest': 2.4, 'safety': 2.2, 'secure': 2.0,
+        'security': 2.0, 'clean': 1.8, 'renewable': 2.0, 'clear': 1.6, 'clarity': 2.0,
+        'justice': 2.4, 'empower': 2.4, 'empowerment': 2.5, 'wisdom': 2.5, 'dazzling': 2.7,
+        'valuable': 2.2, 'advantage': 2.0, 'favorable': 2.2, 'favor': 1.8, 'upgrade': 1.8,
+        'upgrades': 1.8, 'upgraded': 1.8, 'flourish': 2.5, 'flourishing': 2.5, 'pioneering': 2.8,
+        'pioneer': 2.5, 'credible': 2.0, 'trustworthy': 2.5, 'generous': 2.2, 'pleased': 2.0,
+        'enjoyable': 2.2, 'perfect': 3.0, 'worthwhile': 2.3, 'lucrative': 2.2, 'brilliance': 2.8,
+        'promptly': 1.5, 'avert': 1.6, 'averts': 1.6, 'averted': 1.6, 'cooperation': 2.2,
+        'cooperate': 2.0, 'collaboration': 2.0, 'collaborate': 2.0, 'partnership': 2.0,
     }
 
     NEGATIVE_WORDS = {
-        'disaster': -3.5, 'catastrophic': -3.6, 'crisis': -2.8, 'failure': -3.0, 'failed': -2.8,
-        'terrible': -3.0, 'horrible': -3.0, 'awful': -2.9, 'bad': -1.8, 'worst': -3.3,
-        'corrupt': -3.2, 'corruption': -3.3, 'collapse': -3.2, 'plunge': -2.6, 'crash': -3.0,
-        'devastating': -3.4, 'scandal': -3.1, 'harmful': -2.7, 'toxic': -3.0, 'unethical': -3.0,
-        'atrocious': -3.2, 'miserable': -2.8, 'worsen': -2.5, 'worsening': -2.6, 'danger': -2.7,
-        'dangerous': -2.8, 'threat': -2.7, 'outrage': -3.0, 'disappointing': -2.5, 'disappointment': -2.6,
-        'flawed': -2.2, 'fraud': -3.5, 'fraudulent': -3.5, 'tragic': -3.2, 'tragedy': -3.2,
-        'decline': -2.0, 'loss': -2.0, 'suffer': -2.7, 'suffering': -2.8, 'horrific': -3.4,
-        'chaos': -2.9, 'chaotic': -2.8, 'hate': -2.9, 'condemn': -2.8, 'oppose': -2.0,
-        'alarming': -2.7, 'bleak': -2.6, 'doomed': -3.2, 'useless': -2.5, 'reckless': -2.8,
-        'ruin': -3.0, 'ruined': -3.0, 'destruction': -3.2, 'destructive': -3.0, 'slaughter': -3.8,
-        'controversy': -2.0, 'controversial': -1.8, 'guilt': -2.2, 'guilty': -2.4, 'crime': -2.8,
-        'criminal': -2.8, 'exploit': -2.6, 'exploitation': -2.8, 'poverty': -2.6, 'famine': -3.2,
-        'inflation': -1.8, 'recession': -2.6, 'depression': -2.8, 'deficit': -1.8, 'breach': -2.5,
-        'vulnerability': -2.2, 'vulnerable': -2.0, 'fake': -2.5, 'deceit': -3.0, 'lie': -2.8,
-        'lying': -2.8, 'cruel': -3.2, 'cruelty': -3.2, 'violence': -3.2, 'violent': -3.0,
-        'assault': -3.2, 'murder': -3.8, 'killing': -3.5, 'brutal': -3.2, 'brutality': -3.2,
-        'oppress': -3.0, 'oppression': -3.0, 'discrimination': -3.0, 'disgust': -3.0, 'disgusting': -3.2,
-        'shameful': -2.8, 'shame': -2.5, 'disgraceful': -3.0, 'disgrace': -2.8, 'fatal': -3.4,
-        'fatality': -3.4, 'downfall': -2.8, 'backlash': -2.4, 'rebuke': -2.2, 'setback': -2.2,
-        'stumble': -1.8, 'cynical': -2.0, 'pessimistic': -2.2, 'pessimism': -2.2, 'waste': -2.2,
-        'worthless': -3.0, 'obsolete': -2.0, 'disarray': -2.5, 'distress': -2.6, 'panic': -2.8,
+        'disaster': -3.5, 'catastrophic': -3.6, 'catastrophe': -3.6, 'crisis': -2.8, 'crises': -2.8,
+        'failure': -3.0, 'failed': -2.8, 'fail': -2.6, 'fails': -2.6, 'terrible': -3.0,
+        'horrible': -3.0, 'awful': -2.9, 'bad': -1.8, 'worst': -3.3, 'corrupt': -3.2,
+        'corruption': -3.3, 'collapse': -3.2, 'collapses': -3.2, 'collapsed': -3.2,
+        'plunge': -2.6, 'plunges': -2.6, 'plunged': -2.6, 'crash': -3.0, 'crashes': -3.0,
+        'crashed': -3.0, 'devastating': -3.4, 'devastate': -3.2, 'devastates': -3.2,
+        'devastated': -3.4, 'devastation': -3.4, 'scandal': -3.1, 'scandals': -3.1,
+        'harmful': -2.7, 'harm': -2.5, 'harms': -2.5, 'harmed': -2.5, 'toxic': -3.0,
+        'unethical': -3.0, 'atrocious': -3.2, 'miserable': -2.8, 'worsen': -2.5, 'worsening': -2.6,
+        'worsens': -2.5, 'worsened': -2.5, 'worse': -2.6, 'danger': -2.7, 'dangers': -2.7,
+        'dangerous': -2.8, 'threat': -2.7, 'threats': -2.7, 'threaten': -2.7, 'threatens': -2.7,
+        'threatened': -2.7, 'threatening': -2.7, 'outrage': -3.0, 'outraged': -3.0,
+        'disappointing': -2.5, 'disappointment': -2.6, 'disappointed': -2.5, 'flawed': -2.2,
+        'flaw': -2.0, 'flaws': -2.0, 'fraud': -3.5, 'fraudulent': -3.5, 'tragic': -3.2,
+        'tragedy': -3.2, 'tragedies': -3.2, 'decline': -2.0, 'declines': -2.0, 'declined': -2.0,
+        'loss': -2.2, 'losses': -2.4, 'lose': -2.0, 'loses': -2.0, 'lost': -2.0, 'losing': -2.0,
+        'suffer': -2.7, 'suffering': -2.8, 'suffers': -2.7, 'suffered': -2.7, 'horrific': -3.4,
+        'chaos': -2.9, 'chaotic': -2.8, 'hate': -2.9, 'hates': -2.9, 'hated': -2.9,
+        'condemn': -2.8, 'condemns': -2.8, 'condemned': -2.8, 'condemning': -2.8, 'oppose': -2.0,
+        'opposes': -2.0, 'opposed': -2.0, 'opposing': -2.0, 'alarming': -2.7, 'alarm': -2.2,
+        'alarms': -2.2, 'alarmed': -2.2, 'bleak': -2.6, 'doomed': -3.2, 'useless': -2.5,
+        'reckless': -2.8, 'ruin': -3.0, 'ruined': -3.0, 'ruins': -3.0, 'destruction': -3.2,
+        'destroy': -3.2, 'destroys': -3.2, 'destroyed': -3.2, 'destructive': -3.0,
+        'slaughter': -3.8, 'controversy': -2.2, 'controversial': -2.0, 'guilt': -2.2,
+        'guilty': -2.4, 'crime': -2.8, 'crimes': -2.8, 'criminal': -2.8, 'criminals': -2.8,
+        'exploit': -2.6, 'exploits': -2.6, 'exploited': -2.6, 'exploitation': -2.8,
+        'poverty': -2.6, 'famine': -3.4, 'inflation': -2.0, 'recession': -2.8, 'depression': -2.8,
+        'deficit': -2.0, 'deficits': -2.0, 'breach': -2.5, 'breaches': -2.5, 'breached': -2.5,
+        'vulnerability': -2.2, 'vulnerabilities': -2.2, 'vulnerable': -2.0, 'fake': -2.5,
+        'deceit': -3.0, 'lie': -2.8, 'lies': -2.8, 'lying': -2.8, 'cruel': -3.2, 'cruelty': -3.2,
+        'violence': -3.2, 'violent': -3.0, 'assault': -3.2, 'assaults': -3.2, 'assaulted': -3.2,
+        'murder': -3.8, 'murders': -3.8, 'murdered': -3.8, 'manslaughter': -3.6, 'kill': -3.5,
+        'kills': -3.5, 'killed': -3.5, 'killing': -3.5, 'killings': -3.5, 'dead': -3.0,
+        'death': -3.0, 'deaths': -3.2, 'fatal': -3.4, 'fatality': -3.4, 'fatalities': -3.5,
+        'brutal': -3.2, 'brutality': -3.2, 'oppress': -3.0, 'oppression': -3.0,
+        'discrimination': -3.0, 'disgust': -3.0, 'disgusting': -3.2, 'shameful': -2.8,
+        'shame': -2.5, 'disgraceful': -3.0, 'disgrace': -2.8, 'downfall': -2.8, 'backlash': -2.6,
+        'rebuke': -2.4, 'rebukes': -2.4, 'rebuked': -2.4, 'setback': -2.4, 'setbacks': -2.4,
+        'stumble': -2.0, 'stumbles': -2.0, 'stumbled': -2.0, 'cynical': -2.0, 'pessimistic': -2.2,
+        'waste': -2.2, 'worthless': -3.0, 'obsolete': -2.0, 'disarray': -2.5, 'distress': -2.6,
+        'panic': -2.8, 'panicked': -2.8, 'attack': -3.2, 'attacks': -3.2, 'attacked': -3.2,
+        'attacking': -3.2, 'attacker': -3.2, 'attackers': -3.2, 'strike': -2.8, 'strikes': -2.8,
+        'struck': -2.8, 'striking': -2.8, 'warn': -2.0, 'warns': -2.0, 'warned': -2.0,
+        'warning': -2.2, 'warnings': -2.2, 'criticize': -2.4, 'criticizes': -2.4,
+        'criticized': -2.4, 'criticizing': -2.4, 'criticism': -2.2, 'critique': -1.8,
+        'misconduct': -3.0, 'furious': -3.0, 'fury': -3.0, 'anger': -2.8, 'angry': -2.8,
+        'toll': -2.2, 'tolls': -2.2, 'sanction': -2.4, 'sanctions': -2.6, 'sanctioned': -2.6,
+        'freeze': -2.0, 'frozen': -2.0, 'freezes': -2.0, 'ban': -2.2, 'banned': -2.4,
+        'bans': -2.2, 'banning': -2.4, 'downturn': -2.6, 'downturns': -2.6, 'layoff': -2.8,
+        'layoffs': -3.0, 'laid off': -3.0, 'slump': -2.4, 'slumps': -2.4, 'slumped': -2.4,
+        'tumble': -2.2, 'tumbles': -2.2, 'tumbled': -2.2, 'drop': -1.8, 'drops': -1.8,
+        'dropped': -1.8, 'dropping': -1.8, 'wildfire': -3.0, 'wildfires': -3.0, 'flood': -3.0,
+        'floods': -3.0, 'flooding': -3.0, 'flooded': -3.0, 'storm': -2.4, 'storms': -2.4,
+        'hurricane': -3.2, 'cyclone': -3.2, 'tornado': -3.2, 'earthquake': -3.4, 'missing': -2.6,
+        'extradite': -1.8, 'extradition': -2.0, 'inquiry': -1.5, 'investigate': -1.8,
+        'investigation': -2.0, 'probe': -2.0, 'probes': -2.0, 'probed': -2.0, 'misstep': -2.2,
+        'missteps': -2.2, 'reckoning': -2.5, 'dip': -1.4, 'dips': -1.4, 'dipped': -1.4,
+        'clash': -2.6, 'clashes': -2.6, 'clashed': -2.6, 'clashing': -2.6, 'war': -3.5,
+        'wars': -3.5, 'conflict': -2.8, 'conflicts': -2.8, 'hostage': -3.6, 'hostages': -3.6,
+        'bomb': -3.6, 'bombs': -3.6, 'bombing': -3.6, 'blast': -3.4, 'blasts': -3.4,
+        'missile': -3.2, 'missiles': -3.2, 'casualty': -3.2, 'casualties': -3.5,
+        'injured': -2.6, 'injuries': -2.6, 'wound': -2.6, 'wounds': -2.6, 'wounded': -2.6,
     }
 
     INTENSIFIERS = {
@@ -510,6 +565,7 @@ class SemanticSentimentAnalyzer:
         'remarkably': 1.4, 'utterly': 1.7, 'absolutely': 1.6, 'totally': 1.5, 'highly': 1.4,
         'significantly': 1.4, 'so': 1.3, 'truly': 1.4, 'very': 1.35, 'really': 1.3,
         'exceptionally': 1.6, 'insanely': 1.5, 'wildly': 1.4, 'strongly': 1.4, 'completely': 1.4,
+        'massively': 1.6, 'severely': 1.6, 'heavily': 1.4,
     }
 
     DIMINISHERS = {
@@ -534,22 +590,48 @@ class SemanticSentimentAnalyzer:
     _proto_matrix = None
 
     @classmethod
+    def _stem_variants(cls, w: str) -> list:
+        stems = [w]
+        if w.endswith('ies') and len(w) > 4:
+            stems.append(w[:-3] + 'y')
+        if w.endswith('es') and len(w) > 3:
+            stems.append(w[:-2])
+        if w.endswith('s') and len(w) > 2 and not w.endswith('ss'):
+            stems.append(w[:-1])
+        if w.endswith('ed') and len(w) > 3:
+            stems.append(w[:-2])
+            stems.append(w[:-1])
+        if w.endswith('ing') and len(w) > 4:
+            stems.append(w[:-3])
+            stems.append(w[:-3] + 'e')
+        if w.endswith('ly') and len(w) > 3:
+            stems.append(w[:-2])
+        return stems
+
+    @classmethod
     def _init_vectorizer(cls):
         if cls._vectorizer is None:
             try:
                 pos_proto = (
-                    "groundbreaking breakthrough innovative milestone revolutionary triumph "
-                    "uplifting inspiring superb excellent great positive promising remarkable "
-                    "impressive outstanding recovery progress growth success beneficial optimism "
-                    "victory sustainable visionary heroic brilliant fantastic achievement "
-                    "advancement thriving admirable solution support applaud commend"
+                    "groundbreaking breakthrough innovative innovation milestone revolutionary triumph "
+                    "uplifting inspiring superb excellent great positive promising remarkable impressive "
+                    "outstanding recovery recover progress growth grow success successful beneficial benefit "
+                    "victory victorious sustainable visionary heroic brilliant fantastic achievement advancement "
+                    "thriving thrive admirable solution support applaud commend cheer peace peaceful ceasefire "
+                    "truce treaty accord agreement agree settlement reconcile reconciliation relief rescue save "
+                    "cure cured heal healing rebound rally soar win wins won safe safety clean renewable deal "
+                    "cooperation collaborate partnership record profits surge expansion boom aid prosperity"
                 )
                 neg_proto = (
-                    "disaster catastrophic crisis failure failed terrible horrible awful "
-                    "corrupt corruption collapse plunge crash devastating scandal harmful "
-                    "toxic unethical atrocious miserable worsening danger threat outrage "
-                    "disappointing flawed fraud tragic decline loss suffering horrific chaos "
-                    "alarming doomed useless reckless controversy setback stumble recession breach"
+                    "disaster catastrophic catastrophe crisis crises failure failed fail terrible horrible awful "
+                    "corrupt corruption collapse plunge crash devastating devastate scandal harmful toxic "
+                    "unethical atrocious miserable worsening danger dangerous threat threaten outrage "
+                    "disappointing flawed fraud tragic tragedy decline loss losses lose suffering horrific chaos "
+                    "alarming doomed useless reckless controversy controversial setback stumble recession inflation "
+                    "murder manslaughter kill killed killing death deaths fatal fatalities assault brutal violence "
+                    "violent attack attacks warning warn warned strike strikes criticize criticizes misconduct furious "
+                    "toll sanctions banned ban layoff layoffs downturn slump wildfire flood earthquake missing clash "
+                    "war conflict hostage bomb blast missile casualty injured emergency wreckage panic dispute"
                 )
                 cls._vectorizer = TfidfVectorizer(stop_words='english')
                 cls._vectorizer.fit([pos_proto, neg_proto])
@@ -561,8 +643,9 @@ class SemanticSentimentAnalyzer:
     def analyze(cls, text: str, **kwargs) -> dict:
         """
         Pure semantic NLP analysis of text sentiment using fine-tuned valence lexicons,
-        negation detection, intensifiers/diminishers, contrastive clause weighting,
-        punctuation/emoji signals, and TF-IDF semantic prototype vector cosine similarity.
+        morphological stemming lookups, negation detection, intensifiers/diminishers,
+        contrastive clause weighting, punctuation/emoji signals, and TF-IDF semantic
+        prototype vector cosine similarity.
         """
         if not text:
             return {
@@ -607,12 +690,18 @@ class SemanticSentimentAnalyzer:
                     continue
 
                 w_score = 0.0
-                if w in cls.POSITIVE_WORDS:
-                    w_score = cls.POSITIVE_WORDS[w]
-                elif w in cls.NEGATIVE_WORDS:
-                    w_score = cls.NEGATIVE_WORDS[w]
+                matched = False
+                for cand in cls._stem_variants(w):
+                    if cand in cls.POSITIVE_WORDS:
+                        w_score = cls.POSITIVE_WORDS[cand]
+                        matched = True
+                        break
+                    elif cand in cls.NEGATIVE_WORDS:
+                        w_score = cls.NEGATIVE_WORDS[cand]
+                        matched = True
+                        break
 
-                if w_score != 0.0:
+                if matched:
                     w_score *= intensity_mod
                     if negate_window > 0:
                         w_score = -w_score * 0.75
@@ -641,13 +730,13 @@ class SemanticSentimentAnalyzer:
                 tx = cls._vectorizer.transform([text])
                 sims = cosine_similarity(tx, cls._proto_matrix)[0]
                 pos_sim, neg_sim = float(sims[0]), float(sims[1])
-                vector_delta = (pos_sim - neg_sim) * 4.0
+                vector_delta = (pos_sim - neg_sim) * 4.5
                 raw_score += vector_delta
         except Exception:
             pass
 
         # Compound score normalization into [-1.0, 1.0] (purely derived from semantic NLP analysis)
-        denom = math.sqrt(raw_score * raw_score + 14.0)
+        denom = math.sqrt(raw_score * raw_score + 10.0)
         compound = raw_score / denom if denom > 0 else 0.0
         compound = max(-1.0, min(1.0, compound))
 
@@ -1027,9 +1116,6 @@ def get_cluster_sentiment(cluster_title: str, arts: list = None, consensus_summa
 
     try:
         comments = get_comments_for_article(cluster_title)
-        if not comments and arts:
-            comments = fetch_and_store_rss_comments(cluster_title, arts)
-
         fallback_text = f"{cluster_title}. {consensus_summary}"
         return aggregate_comments_sentiment(comments, fallback_text=fallback_text)
     except Exception as e:
