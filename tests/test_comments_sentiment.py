@@ -11,7 +11,7 @@ from news import (
     SemanticSentimentAnalyzer,
     aggregate_comments_sentiment,
     get_comments_for_article,
-    generate_rss_perspectives,
+    extract_comments_from_article_html,
     fetch_and_store_rss_comments,
     get_cluster_sentiment,
     cluster_articles,
@@ -68,7 +68,7 @@ class TestSemanticSentimentAnalyzer:
 
 
 class TestAggregationAndRSS:
-    """Test aggregation and RSS perspective generation."""
+    """Test aggregation and real article comment extraction."""
 
     def test_aggregate_comments_sentiment_empty_fallback(self):
         title = "Incredible Economic Recovery Surpasses Expectations"
@@ -91,25 +91,49 @@ class TestAggregationAndRSS:
         assert res["positivity_pct"] > res["negativity_pct"]
         assert res["positivity_pct"] + res["negativity_pct"] == 100
 
-    def test_generate_rss_perspectives(self):
+    def test_extract_comments_from_article_html(self):
+        sample_html = """
+        <html>
+        <head>
+            <script type="application/ld+json">
+            {
+                "@context": "https://schema.org",
+                "@type": "Comment",
+                "text": "Fascinating technology leap! I tested the new quantum simulators and the latency is astonishingly fast.",
+                "author": {"@type": "Person", "name": "Dr. Sarah Chen"}
+            }
+            </script>
+        </head>
+        <body>
+            <div class="comment-item">
+                <span class="comment-author">Marcus Ray</span>
+                <p class="comment-content">Great analytical breakdown of the processor design. Looking forward to real-world benchmarks!</p>
+            </div>
+            <div class="comment-item">
+                <span class="comment-author">Anonymous User</span>
+                <p class="comment-content">Leave a reply and sign in to comment</p>
+            </div>
+        </body>
+        </html>
+        """
+        extracted = extract_comments_from_article_html(sample_html, source_name="Tech Journal", article_url="https://techjournal.example.com/quantum")
+        assert len(extracted) >= 2
+        assert any("Dr. Sarah Chen" in c["author_name"] for c in extracted)
+        assert any("Marcus Ray" in c["author_name"] for c in extracted)
+        assert all("leave a reply" not in c["content"].lower() for c in extracted)
+        assert all(c["sentiment"] in ("positive", "neutral", "negative") for c in extracted)
+
+    def test_fetch_and_store_rss_comments_no_fake_reporters(self, test_db_path):
         articles = [
             {
                 "title": "Quantum Computing Reaches Historic Milestones",
-                "summary": "Engineers achieved unprecedented coherence time and fault tolerance.",
+                "summary": "Engineers achieved unprecedented coherence time.",
                 "source": "TechCrunch",
-                "url": "https://techcrunch.com/quantum",
-            },
-            {
-                "title": "Concerns Raised Over High Hardware Costs in Quantum Computing",
-                "summary": "Critics warn infrastructure costs remain exorbitant and scalability is uncertain.",
-                "source": "The Verge",
-                "url": "https://theverge.com/quantum-costs",
+                "url": "",
             }
         ]
-        perspectives = generate_rss_perspectives("Quantum Computing Breakthrough", articles)
-        assert len(perspectives) >= 2
-        assert any(p["sentiment"] in ("positive", "negative", "neutral") for p in perspectives)
-        assert all("rss" in p["source"].lower() for p in perspectives)
+        res = fetch_and_store_rss_comments("Quantum Computing Breakthrough", articles)
+        assert len(res) == 0
 
 
 class TestCommentsAPI:

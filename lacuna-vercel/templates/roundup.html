@@ -561,7 +561,7 @@
                 <button type="button" class="roundup-filter-tab active" data-filter="all">All Feedback (<span id="count-all">0</span>)</button>
                 <button type="button" class="roundup-filter-tab" data-filter="positive">Positive (<span id="count-pos">0</span>)</button>
                 <button type="button" class="roundup-filter-tab" data-filter="negative">Critical (<span id="count-neg">0</span>)</button>
-                <button type="button" class="roundup-filter-tab" data-filter="rss">RSS Articles (<span id="count-rss">0</span>)</button>
+                <button type="button" class="roundup-filter-tab" data-filter="rss">Article Sources (<span id="count-rss">0</span>)</button>
             </div>
 
             <!-- Comments Stream -->
@@ -784,7 +784,7 @@
             const totalCount = currentRoundupComments.length;
             const posCount = currentRoundupComments.filter(c => c.sentiment === 'positive').length;
             const negCount = currentRoundupComments.filter(c => c.sentiment === 'negative').length;
-            const rssCount = currentRoundupComments.filter(c => (c.source || '').toLowerCase().includes('rss')).length;
+            const rssCount = currentRoundupComments.filter(c => (c.source || '').toLowerCase().includes('via') || (c.source || '').toLowerCase().includes('rss') || (c.source || '').toLowerCase().includes('article')).length;
 
             const cAll = document.getElementById('count-all');
             const cPos = document.getElementById('count-pos');
@@ -801,11 +801,21 @@
             } else if (currentRoundupFilter === 'negative') {
                 filtered = currentRoundupComments.filter(c => c.sentiment === 'negative');
             } else if (currentRoundupFilter === 'rss') {
-                filtered = currentRoundupComments.filter(c => (c.source || '').toLowerCase().includes('rss'));
+                filtered = currentRoundupComments.filter(c => (c.source || '').toLowerCase().includes('via') || (c.source || '').toLowerCase().includes('rss') || (c.source || '').toLowerCase().includes('article'));
             }
 
             if (!filtered.length) {
-                stream.innerHTML = '<div class="stream-loading">No feedback entries under this filter.</div>';
+                if (currentRoundupComments.length === 0) {
+                    stream.innerHTML = `
+                        <div class="roundup-comment-card" style="text-align:center; padding:36px 20px; color:var(--gray); line-height:1.6;">
+                            <div style="font-size:1.6rem; margin-bottom:6px; opacity:0.6;">💬</div>
+                            <strong style="color:var(--fg); display:block; margin-bottom:4px; font-size:0.95rem;">No discussion yet</strong>
+                            <span>Be the first to join the conversation and submit your feedback above.</span>
+                        </div>
+                    `;
+                } else {
+                    stream.innerHTML = '<div class="stream-loading">No feedback entries under this filter.</div>';
+                }
                 return;
             }
 
@@ -818,7 +828,7 @@
                 const isNeg = c.sentiment === 'negative';
                 const badgeClass = isPos ? 'pos' : (isNeg ? 'neg' : 'neu');
                 const scoreLabel = `${c.positivity_pct}% Pos`;
-                const isRss = (c.source || '').toLowerCase().includes('rss');
+                const isArticleSource = c.source && (c.source.toLowerCase().startsWith('via') || c.source.toLowerCase().includes('article') || c.source.toLowerCase().includes('rss'));
                 const authorName = c.author_name || 'Community Reader';
                 const authorInitial = (authorName || 'U').slice(0, 1).toUpperCase();
 
@@ -827,7 +837,7 @@
                         <div class="roundup-author-wrap">
                             <span class="roundup-avatar">${authorInitial}</span>
                             <span class="roundup-author-name">${escapeHtml(authorName)}</span>
-                            <span class="roundup-source-pill">${isRss ? escapeHtml(c.source) : 'Verified Reader'}</span>
+                            <span class="roundup-source-pill">${isArticleSource ? escapeHtml(c.source) : 'Verified Reader'}</span>
                         </div>
                         <span class="roundup-sentiment-pill ${badgeClass}">${scoreLabel}</span>
                     </div>

@@ -304,6 +304,17 @@ def init_db():
             except Exception:
                 pass
 
+        # Purge legacy fabricated/synthetic reporter comments
+        try:
+            db.execute("""
+                DELETE FROM article_comments
+                WHERE author_name LIKE '% Reporter'
+                   OR source LIKE 'RSS:%'
+                   OR source IN ('RSS Feed', 'RSS Community', 'RSS Wire')
+            """)
+        except Exception:
+            pass
+
 
 _db_initialized = False
 
@@ -762,76 +773,124 @@ def get_comments_for_article(article_title: str) -> list:
         return [comment_row_to_dict(r) for r in rows]
 
 
-def generate_rss_perspectives(article_title: str, articles: list) -> list:
+COMMENT_BOILERPLATE_RE = re.compile(
+    r'\b('
+    r'leave a (reply|comment)|post a comment|sign in to (comment|reply)|'
+    r'log in to (comment|reply)|must be logged in|all rights reserved|'
+    r'cookie policy|privacy policy|terms of service|subscribe for|'
+    r'read more|load more comments|view all \d+ comments|add your comment|'
+    r'related articles?|trending stories|recommended for you|copyright'
+    r')\b',
+    re.IGNORECASE
+)
+
+
+def extract_comments_from_article_html(html_text: str, source_name: str = "", article_url: str = "") -> list:
     """
-    Extracts multi-source reporting commentary and public reactions from RSS article data.
+    Extracts genuine reader/people feedback from an article's web page if it has a comment section
+    (e.g., Schema.org UserComments, WordPress, Coral, OpenWeb, Spot.IM, or standard HTML comment blocks).
     """
-    perspectives = []
-    seen_texts = set()
+    if not html_text or len(html_text) < 100:
+        return []
 
-    for idx, a in enumerate(articles or []):
-        src = (a.get('source') or 'RSS Feed').strip()
-        summary = clean_html(a.get('summary') or '').strip()
-        title = clean_article_title(a.get('title') or '').strip()
-        url = a.get('url', '')
+    comments = []
+    seen = set()
+    src = (source_name or '').strip()
 
-        content = ""
-        if summary and len(summary) >= 30:
-            content = summary
-        elif title and title.lower() != article_title.lower() and len(title) >= 15:
-            content = f"Reporting by {src}: {title}"
-        elif summary:
-            content = summary
+    # 1. JSON-LD structured comments (@type: Comment / UserComments)
+    try:
+        json_ld_matches = re.findall(r'<script[^>]*type=["\']application/ld\+json["\'][^>]*>(.*?)</script>', html_text, re.DOTALL | re.IGNORECASE)
+        for block in json_ld_matches:
+            try:
+                data = json.loads(block.strip())
+                items = data if isinstance(data, list) else [data]
+                for item in items:
+                    if isinstance(item, dict):
+                        c_list = item.get('comment') or item.get('commentList') or []
+                        if isinstance(c_list, dict):
+                            c_list = [c_list]
+                        if item.get('@type') in ('Comment', 'UserComments'):
+                            c_list.append(item)
 
-        if content and content not in seen_texts:
-            seen_texts.add(content)
-            analysis = SemanticSentimentAnalyzer.analyze(content)
-            perspectives.append({
-                'author': f"{src} Reporter",
-                'content': content[:600],
-                'source': f"RSS: {src}",
-                'url': url,
-                'sentiment': analysis['sentiment'],
-                'positivity_score': analysis['positivity_score'],
-                'negativity_score': analysis['negativity_score'],
-            })
+                        for c in c_list:
+                            if isinstance(c, dict):
+                                text = clean_html(c.get('text') or c.get('description') or c.get('articleBody') or '').strip()
+                                author = c.get('author')
+                                author_name = ""
+                                if isinstance(author, dict):
+                                    author_name = author.get('name') or author.get('alternateName') or ''
+                                elif isinstance(author, str):
+                                    author_name = author
+                                author_name = clean_html(author_name or (f"Reader via {src}" if src else "Community Reader")).strip()
 
-        if len(perspectives) >= 5:
-            break
+                                if text and len(text) >= 15 and len(text) <= 1200:
+                                    norm_key = text[:80].lower()
+                                    if norm_key not in seen and not COMMENT_BOILERPLATE_RE.search(text):
+                                        seen.add(norm_key)
+                                        analysis = SemanticSentimentAnalyzer.analyze(text)
+                                        comments.append({
+                                            'author_name': author_name[:60] or (f"Reader via {src}" if src else "Community Reader"),
+                                            'content': text[:800],
+                                            'sentiment': analysis['sentiment'],
+                                            'positivity_score': analysis['positivity_score'],
+                                            'negativity_score': analysis['negativity_score'],
+                                            'source': f"via {src}" if src else "Article Comment",
+                                            'article_url': article_url or '',
+                                        })
+            except Exception:
+                pass
+    except Exception:
+        pass
 
-    # If no summaries/titles yielded perspectives, create balanced default RSS perspectives
-    if not perspectives:
-        p1 = f"Crucial industry developments observed regarding {article_title[:80]}. Notable potential for market impact and reader interest."
-        p2 = f"Monitoring reactions across global outlets regarding {article_title[:80]}. Further verification and policy discussions are underway."
-        a1 = SemanticSentimentAnalyzer.analyze(p1)
-        a2 = SemanticSentimentAnalyzer.analyze(p2)
-        perspectives = [
-            {
-                'author': 'Industry Analyst · via RSS',
-                'content': p1,
-                'source': 'RSS Community',
-                'url': '',
-                'sentiment': a1['sentiment'],
-                'positivity_score': a1['positivity_score'],
-                'negativity_score': a1['negativity_score'],
-            },
-            {
-                'author': 'Editorial Review · via RSS',
-                'content': p2,
-                'source': 'RSS Wire',
-                'url': '',
-                'sentiment': a2['sentiment'],
-                'positivity_score': a2['positivity_score'],
-                'negativity_score': a2['negativity_score'],
-            }
-        ]
+    # 2. HTML comment blocks (WordPress, Coral, Spot.IM, OpenWeb, Custom CMS)
+    if len(comments) < 5:
+        comment_block_re = re.compile(
+            r'<(?:article|li|div|section)\b[^>]*class=["\'][^"\']*\b(?:comment|comment-body|comment-item|user-comment|reader-comment|comments__item|comment__wrap|wp-block-comment)\b[^"\']*["\'][^>]*>(.*?)</(?:article|li|div|section)>',
+            re.DOTALL | re.IGNORECASE
+        )
+        for match in comment_block_re.finditer(html_text):
+            block_html = match.group(1)
+            text_match = re.search(
+                r'<(?:div|p|span|blockquote)\b[^>]*class=["\'][^"\']*\b(?:comment-content|comment-body|comment-text|comment-message|user-comment-body|comment__text|content)\b[^"\']*["\'][^>]*>(.*?)</(?:div|p|span|blockquote)>',
+                block_html,
+                re.DOTALL | re.IGNORECASE
+            )
+            raw_text = text_match.group(1) if text_match else block_html
+            text = clean_html(raw_text).strip()
 
-    return perspectives
+            author_match = re.search(
+                r'<(?:span|a|div|strong|cite|h[4-6])\b[^>]*class=["\'][^"\']*\b(?:comment-author|comment__author|user-name|author-name|commenter-name|fn)\b[^"\']*["\'][^>]*>(.*?)</(?:span|a|div|strong|cite|h[4-6])>',
+                block_html,
+                re.DOTALL | re.IGNORECASE
+            )
+            author_name = clean_html(author_match.group(1)).strip() if author_match else (f"Reader via {src}" if src else "Community Reader")
+
+            if text and len(text) >= 15 and len(text) <= 1200:
+                if not COMMENT_BOILERPLATE_RE.search(text):
+                    if not text.startswith(('Day after', 'Lok Sabha', 'Supreme Court', 'Reporting by')):
+                        norm_key = text[:80].lower()
+                        if norm_key not in seen:
+                            seen.add(norm_key)
+                            analysis = SemanticSentimentAnalyzer.analyze(text)
+                            comments.append({
+                                'author_name': author_name[:60] or (f"Reader via {src}" if src else "Community Reader"),
+                                'content': text[:800],
+                                'sentiment': analysis['sentiment'],
+                                'positivity_score': analysis['positivity_score'],
+                                'negativity_score': analysis['negativity_score'],
+                                'source': f"via {src}" if src else "Article Comment",
+                                'article_url': article_url or '',
+                            })
+            if len(comments) >= 8:
+                break
+
+    return comments[:8]
 
 
 def fetch_and_store_rss_comments(article_title: str, articles: list = None) -> list:
     """
-    Extracts and stores comments from RSS returned articles into the database.
+    Fetches real reader comments from the comment sections of fetched articles or their RSS comment feeds.
+    Returns only genuine reader comments (no fabricated reporter articles).
     """
     article_title = (article_title or '').strip()
     if not article_title:
@@ -844,9 +903,9 @@ def fetch_and_store_rss_comments(article_title: str, articles: list = None) -> l
     new_comments = []
     articles = articles or []
 
-    # 1. Direct comment RSS (wfw:commentRss) parsing
+    # 1. Direct comment RSS (wfw:commentRss or <comments> feed)
     for a in articles:
-        comment_rss = a.get('wfw_commentrss') or ''
+        comment_rss = a.get('wfw_commentrss') or a.get('comments_url') or ''
         if comment_rss and comment_rss.startswith('http'):
             try:
                 cfeed = feedparser.parse(comment_rss)
@@ -858,8 +917,8 @@ def fetch_and_store_rss_comments(article_title: str, articles: list = None) -> l
                             or (ce.get('content', [{}])[0].get('value') if ce.get('content') else '')
                             or ''
                         ).strip()
-                        c_author = ce.get('author') or ce.get('dc_creator') or f"{a.get('source') or 'RSS'} Reader"
-                        if len(c_text) >= 10:
+                        c_author = ce.get('author') or ce.get('dc_creator') or (f"Reader via {a.get('source')}" if a.get('source') else "RSS Reader")
+                        if len(c_text) >= 15 and not COMMENT_BOILERPLATE_RE.search(c_text):
                             analysis = SemanticSentimentAnalyzer.analyze(c_text)
                             new_comments.append({
                                 'user_id': None,
@@ -871,31 +930,56 @@ def fetch_and_store_rss_comments(article_title: str, articles: list = None) -> l
                                 'sentiment': analysis['sentiment'],
                                 'positivity_score': analysis['positivity_score'],
                                 'negativity_score': analysis['negativity_score'],
-                                'source': f"RSS: {a.get('source') or 'Feed'}",
+                                'source': f"via {a.get('source') or 'RSS'}",
                                 'rating': 0,
                             })
             except Exception as e:
                 app.logger.warning("Failed parsing comment RSS %s: %s", comment_rss, e)
 
-    # 2. Extract multi-source reporting commentary and perspectives
-    if len(new_comments) < 2:
-        perspectives = generate_rss_perspectives(article_title, articles)
-        for p in perspectives:
-            analysis = SemanticSentimentAnalyzer.analyze(p['content'])
-            new_comments.append({
-                'user_id': None,
-                'article_title': article_title[:240],
-                'article_url': p.get('url', ''),
-                'author_name': p.get('author', 'RSS Reader'),
-                'avatar_url': '',
-                'content': p['content'][:1000],
-                'sentiment': analysis['sentiment'],
-                'positivity_score': analysis['positivity_score'],
-                'negativity_score': analysis['negativity_score'],
-                'source': p.get('source', 'RSS Feed'),
-                'rating': 0,
-            })
+    # 2. Extract real comment section feedback from fetched article web pages
+    if len(new_comments) < 5 and articles:
+        for a in articles[:3]:
+            url = a.get('url', '')
+            if not url:
+                continue
+            src = a.get('source', '')
+            dest_url = url
+            if 'news.google.com' in url:
+                try:
+                    from googlenewsdecoder import gnewsdecoder
+                    res = gnewsdecoder(url)
+                    if res.get('status') and res.get('decoded_url'):
+                        dest_url = res.get('decoded_url')
+                except Exception:
+                    pass
 
+            try:
+                resp = requests.get(dest_url, headers=HEADERS, timeout=4)
+                if resp.status_code == 200:
+                    html_content = resp.text
+                    extracted = extract_comments_from_article_html(html_content, source_name=src, article_url=dest_url)
+                    for ec in extracted:
+                        new_comments.append({
+                            'user_id': None,
+                            'article_title': article_title[:240],
+                            'article_url': ec.get('article_url', dest_url),
+                            'author_name': ec.get('author_name', f"Reader via {src}"),
+                            'avatar_url': '',
+                            'content': ec['content'][:1000],
+                            'sentiment': ec['sentiment'],
+                            'positivity_score': ec['positivity_score'],
+                            'negativity_score': ec['negativity_score'],
+                            'source': ec.get('source', f"via {src}"),
+                            'rating': 0,
+                        })
+                        if len(new_comments) >= 8:
+                            break
+            except Exception:
+                pass
+            if len(new_comments) >= 5:
+                break
+
+    # Save any genuine comments found to database
     if new_comments:
         with get_db() as db:
             p = sql_param()
@@ -908,17 +992,17 @@ def fetch_and_store_rss_comments(article_title: str, articles: list = None) -> l
                     VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p})
                     """,
                     (
-                        c['user_id'],
+                        c.get('user_id'),
                         c['article_title'],
-                        c['article_url'],
-                        c['author_name'],
-                        c['avatar_url'],
+                        c.get('article_url', ''),
+                        c.get('author_name', 'Reader'),
+                        c.get('avatar_url', ''),
                         c['content'],
                         c['sentiment'],
                         c['positivity_score'],
                         c['negativity_score'],
-                        c['source'],
-                        c['rating'],
+                        c.get('source', 'Article Comment'),
+                        c.get('rating', 0),
                     )
                 )
 

@@ -818,7 +818,7 @@ function clearReadingHistory() {
 
     function loadModalComments(title) {
         const listEl = document.getElementById('modal-comments-list');
-        if (listEl) listEl.innerHTML = '<div style="font-size:0.8rem; color:var(--gray); text-align:center; padding:16px;">Loading feedback & RSS commentary...</div>';
+        if (listEl) listEl.innerHTML = '<div style="font-size:0.8rem; color:var(--gray); text-align:center; padding:16px;">Loading reader feedback...</div>';
 
         fetch(`/api/comments?title=${encodeURIComponent(title)}`)
             .then(r => r.json())
@@ -846,11 +846,21 @@ function clearReadingHistory() {
         } else if (currentModalFilter === 'negative') {
             filtered = currentModalComments.filter(c => c.sentiment === 'negative');
         } else if (currentModalFilter === 'rss') {
-            filtered = currentModalComments.filter(c => (c.source || '').toLowerCase().includes('rss'));
+            filtered = currentModalComments.filter(c => (c.source || '').toLowerCase().includes('via') || (c.source || '').toLowerCase().includes('rss') || (c.source || '').toLowerCase().includes('article'));
         }
 
         if (!filtered.length) {
-            listEl.innerHTML = '<div style="font-size:0.82rem; color:var(--gray); text-align:center; padding:20px;">No comments matching this filter.</div>';
+            if (currentModalComments.length === 0) {
+                listEl.innerHTML = `
+                    <div style="font-size:0.85rem; color:var(--gray); text-align:center; padding:32px 16px; line-height:1.6;">
+                        <div style="font-size:1.4rem; margin-bottom:6px; opacity:0.6;">💬</div>
+                        <strong style="color:var(--fg); display:block; margin-bottom:4px;">No reader feedback yet</strong>
+                        <span>Be the first to share your perspective on this story above!</span>
+                    </div>
+                `;
+            } else {
+                listEl.innerHTML = '<div style="font-size:0.82rem; color:var(--gray); text-align:center; padding:20px;">No comments matching this filter.</div>';
+            }
             return;
         }
 
@@ -863,7 +873,7 @@ function clearReadingHistory() {
             const isNeg = c.sentiment === 'negative';
             const badgeClass = isPos ? 'pos' : (isNeg ? 'neg' : 'neu');
             const scoreLabel = `${c.positivity_pct}% Pos`;
-            const isRss = (c.source || '').toLowerCase().includes('rss');
+            const isArticleSource = c.source && (c.source.toLowerCase().startsWith('via') || c.source.toLowerCase().includes('article') || c.source.toLowerCase().includes('rss'));
             const authorName = c.author_name || 'Community Reader';
             const authorInitial = (authorName || 'U').slice(0, 1).toUpperCase();
 
@@ -872,7 +882,7 @@ function clearReadingHistory() {
                     <div class="comment-author-info">
                         <span class="comment-avatar">${authorInitial}</span>
                         <span class="comment-author-name">${escapeHtml(authorName)}</span>
-                        <span class="comment-source-pill">${isRss ? escapeHtml(c.source) : 'Verified Reader'}</span>
+                        <span class="comment-source-pill">${isArticleSource ? escapeHtml(c.source) : 'Verified Reader'}</span>
                     </div>
                     <span class="comment-sentiment-badge ${badgeClass}">${scoreLabel}</span>
                 </div>
