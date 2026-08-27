@@ -812,8 +812,13 @@ function clearReadingHistory() {
         if (negEl) negEl.textContent = `${neg}% Neg`;
         if (labelEl) labelEl.textContent = sentiment.label || 'Mixed / Balanced';
         if (barPos) barPos.style.width = `${pos}%`;
-        if (barNeg) barNeg.style.width = `${neg}%`;
-        if (totalEl) totalEl.textContent = `${total} total feedback comment${total === 1 ? '' : 's'}`;
+        if (totalEl) {
+            if (total === 0) {
+                totalEl.textContent = '0 reader comments · Baseline story tone';
+            } else {
+                totalEl.textContent = `${total} reader feedback comment${total === 1 ? '' : 's'}`;
+            }
+        }
     }
 
     function loadModalComments(title) {

@@ -759,7 +759,7 @@
 
         function loadRoundupComments(title, articles) {
             const stream = document.getElementById('roundup-comments-stream');
-            if (stream) stream.innerHTML = '<div class="stream-loading">Loading community perspectives and RSS commentary...</div>';
+            if (stream) stream.innerHTML = '<div class="stream-loading">Loading reader feedback...</div>';
 
             fetch(`/api/comments?title=${encodeURIComponent(title)}`)
                 .then(r => r.json())
