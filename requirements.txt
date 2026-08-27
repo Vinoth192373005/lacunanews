@@ -10,6 +10,3 @@ requests>=2.31,<3
 scikit-learn>=1.4,<2
 psycopg[binary]>=3.2,<4
 googlenewsdecoder>=0.1.0
-selenium>=4.20,<5
-pytest>=8.0,<10
-webdriver-manager>=4.0

@@ -1,0 +1,4 @@
+-r requirements.txt
+selenium>=4.20,<5
+pytest>=8.0,<10
+webdriver-manager>=4.0
